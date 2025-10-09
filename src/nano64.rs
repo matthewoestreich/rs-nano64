@@ -18,7 +18,7 @@ const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
 const MAX_TIMESTAMP: u64 = TIMESTAMP_MASK;
 
 pub struct Nano64 {
-    pub value: u64,
+    pub(crate) value: u64,
 }
 
 impl Nano64 {

@@ -183,7 +183,7 @@ factory.from_encrypted_bytes(bytes: &[u8]) -> Result<Nano64Encrypted, Nano64Erro
 Run the collision resistance demonstration:
 
 ```bash
-cargo run
+cargo run --release
 ```
 
 **Benchmark Results:**

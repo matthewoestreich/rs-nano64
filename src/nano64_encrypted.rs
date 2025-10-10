@@ -1,18 +1,22 @@
-pub struct Nano64Encrypted {
-  iv_length: u64,
-  payload_length: u64,
-}
+use crate::{Hex, Nano64};
+use aes_gcm::Aes256Gcm;
 
-impl Default for Nano64Encrypted {
-  fn default() -> Self {
-      let iv_length = 12;
-      Self {
-        iv_length,
-        payload_length: iv_length + 8 + 16,
-      }
-  }
+pub const IV_LENGTH: usize = 12;
+pub const PAYLOAD_LENGTH: usize = IV_LENGTH + 8 + 16;
+
+#[allow(dead_code)]
+pub struct Nano64Encrypted {
+    pub id: Nano64,
+    pub(crate) payload: [u8; PAYLOAD_LENGTH],
+    pub(crate) gcm: Aes256Gcm,
 }
 
 impl Nano64Encrypted {
-  
+    pub fn to_encrypted_hex(&self) -> String {
+        Hex::from_bytes(&self.payload)
+    }
+
+    pub fn to_encrypted_bytes(&self) -> [u8; PAYLOAD_LENGTH] {
+        self.payload
+    }
 }

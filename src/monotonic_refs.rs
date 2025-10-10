@@ -18,6 +18,7 @@ pub(crate) fn get_monotonic_refs() -> Arc<Mutex<MonotonicRefs>> {
         .clone()
 }
 
+#[allow(dead_code)]
 pub(crate) fn reset_monotonic_refs() {
     let refs = get_monotonic_refs();
     let mut guard = refs.lock().unwrap();

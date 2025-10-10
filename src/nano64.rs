@@ -1,5 +1,6 @@
 use crate::{
-    Hex, Nano64Error, RandomNumberGeneratorImpl, monotonic_refs::*, compare, default_rng, time_now_since_epoch_ms,
+    Clock, Hex, Nano64EncryptionFactory, Nano64Error, RandomNumberGeneratorImpl, compare,
+    default_rng, monotonic_refs::*, time_now_since_epoch_ms,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -17,6 +18,7 @@ const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
 // MAX_TIMESTAMP is the maximum timestamp value (2^44 - 1).
 const MAX_TIMESTAMP: u64 = TIMESTAMP_MASK;
 
+#[derive(Clone)]
 pub struct Nano64 {
     pub(crate) value: u64,
 }
@@ -26,16 +28,24 @@ impl Nano64 {
         Self { value }
     }
 
+    pub fn encrypted_factory(
+        key: &[u8],
+        clock: Option<Clock>,
+        rng: Option<RandomNumberGeneratorImpl>,
+    ) -> Result<Nano64EncryptionFactory, Nano64Error> {
+        return Nano64EncryptionFactory::new(key, clock, rng);
+    }
+
     pub fn u64_value(&self) -> u64 {
         self.value
     }
 
-    pub fn generate_now(rng: RandomNumberGeneratorImpl) -> Result<Self, Nano64Error> {
-        Self::generate(time_now_since_epoch_ms(), Some(rng))
+    pub fn generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Self, Nano64Error> {
+        Self::generate(time_now_since_epoch_ms(), rng)
     }
 
     pub fn generate_default() -> Result<Self, Nano64Error> {
-        Self::generate_now(default_rng)
+        Self::generate_now(Some(default_rng))
     }
 
     pub fn to_bytes(&self) -> [u8; 8] {
@@ -109,13 +119,17 @@ impl Nano64 {
             )));
         }
 
-        let bytes = Hex::to_bytes(&clean)?;
-        if bytes.len() != 8 {
+        let bytes_vec = Hex::to_bytes(&clean)?;
+        if bytes_vec.len() != 8 {
             return Err(Nano64Error::Error(format!(
                 "hex must decode to 8 bytes, got {}",
-                bytes.len()
+                bytes_vec.len()
             )));
         }
+
+        let bytes: [u8; 8] = bytes_vec
+            .try_into()
+            .map_err(|_| Nano64Error::Error("hex must decode to exactly 8 bytes".into()))?;
 
         let value = u64::from_be_bytes(bytes);
         Ok(Self { value })
@@ -175,7 +189,7 @@ impl Nano64 {
         return Ok(Self { value });
     }
 
-    fn generate(
+    pub(crate) fn generate(
         timestamp: u64,
         rng: Option<RandomNumberGeneratorImpl>,
     ) -> Result<Self, Nano64Error> {
@@ -203,9 +217,10 @@ mod tests {
 
     use std::time::UNIX_EPOCH;
 
-    use crate::{default_rng, monotonic_refs::reset_monotonic_refs, TIMESTAMP_BITS};
-
-    use super::{Nano64, Nano64Error, RANDOM_BITS, compare, time_now_since_epoch_ms};
+    use crate::{
+        Nano64, Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare,
+        default_rng, monotonic_refs::reset_monotonic_refs, time_now_since_epoch_ms,
+    };
 
     #[test]
     fn test_nano64_new() {
@@ -570,6 +585,35 @@ mod tests {
             Err(e) => panic!("unexpected error {e}"),
         };
         assert_ne!(id.u64_value(), 0);
+    }
+
+    #[test]
+    fn test_nano64_encrypted_complete() {
+        let key: [u8; 32] = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ];
+        let factory = Nano64EncryptionFactory::new(&key, None, None).unwrap();
+        let encrypted = factory.generate_encrypted_now().unwrap();
+        let hex_str = encrypted.to_encrypted_hex();
+        let bytes = encrypted.to_encrypted_bytes();
+        let decrypted_from_hex = factory.from_encrypted_hex(hex_str).unwrap();
+        assert!(decrypted_from_hex.id.equals(&encrypted.id));
+        let decrypted_from_bytes = factory.from_encrypted_bytes(&bytes).unwrap();
+        assert!(decrypted_from_bytes.id.equals(&encrypted.id));
+    }
+
+    #[test]
+    fn test_nano64_encrypted_generate_encrypted() {
+        let key: [u8; 32] = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        ];
+        let factory = Nano64EncryptionFactory::new(&key, None, None).unwrap();
+        let timestamp: u64 = 1234567890;
+        let encrypted = factory.generate_encrypted(timestamp).unwrap();
+        println!("{:?}", encrypted.payload);
+        assert_eq!(encrypted.id.get_timestamp(), timestamp);
     }
 
     /*

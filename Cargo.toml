@@ -1,11 +1,25 @@
 [package]
-name = "rs-nano64"
+name = "nano64"
 version = "0.1.0"
 edition = "2024"
+authors = ["Matt Oestreich <github.com/matthewoestreich>"]
+description = "64-bit Time-Sortable Identifiers for Rust"
+license = "MIT OR Apache-2.0"      # Required (choose a license)
+repository = "https://github.com/matthewoestreich/rs-nano64"
+readme = "README.md"
+keywords = ["nano64", "uid", "uuid", "ulid"]
+categories = ["algorithms", "data-structures", "database"]
 
 [dependencies]
+hex = "0.4.3"
 rand = "0.9.2"
+aes = "0.8.4"
+aes-gcm = "0.10.3"
 
 [lib]
 name = "nano64"
 path = "src/lib.rs"
+
+[[bin]]
+name = "nano64_collision_benchmark"
+path = "bin/main.rs"

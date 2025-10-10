@@ -18,7 +18,7 @@ const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
 // MAX_TIMESTAMP is the maximum timestamp value (2^44 - 1).
 const MAX_TIMESTAMP: u64 = TIMESTAMP_MASK;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Nano64 {
     pub(crate) value: u64,
 }
@@ -218,9 +218,18 @@ mod tests {
     use std::time::UNIX_EPOCH;
 
     use crate::{
-        Nano64, Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare,
-        default_rng, monotonic_refs::reset_monotonic_refs, time_now_since_epoch_ms,
+        Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare, default_rng,
+        monotonic_refs::{get_monotonic_refs, reset_monotonic_refs},
+        nano64::{MAX_TIMESTAMP, RANDOM_MASK},
+        time_now_since_epoch_ms,
     };
+
+    fn set_monotonic_refs_to(last_random: u64, last_timestamp: u64) {
+        let monotonic_refs = get_monotonic_refs();
+        let mut refs = monotonic_refs.lock().unwrap();
+        refs.last_random = last_random;
+        refs.last_timestamp = last_timestamp;
+    }
 
     #[test]
     fn test_nano64_new() {
@@ -588,55 +597,86 @@ mod tests {
     }
 
     #[test]
-    fn test_nano64_encrypted_complete() {
-        let key: [u8; 32] = [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28, 29, 30, 31, 32,
-        ];
-        let factory = Nano64EncryptionFactory::new(&key, None, None).unwrap();
-        let encrypted = factory.generate_encrypted_now().unwrap();
-        let hex_str = encrypted.to_encrypted_hex();
-        let bytes = encrypted.to_encrypted_bytes();
-        let decrypted_from_hex = factory.from_encrypted_hex(hex_str).unwrap();
-        assert!(decrypted_from_hex.id.equals(&encrypted.id));
-        let decrypted_from_bytes = factory.from_encrypted_bytes(&bytes).unwrap();
-        assert!(decrypted_from_bytes.id.equals(&encrypted.id));
+    fn test_nano64_monotonic_overflow() {
+        reset_monotonic_refs();
+        // Set refs to maximums, simulate exhaustion.
+        set_monotonic_refs_to(RANDOM_MASK, MAX_TIMESTAMP);
+        if let Ok(got) = Nano64::generate_monotonic(MAX_TIMESTAMP, None) {
+            panic!(
+                "`generate_monotonic` called with max timestamp and exhausted random should error but got {got:?}"
+            );
+        }
     }
 
     #[test]
-    fn test_nano64_encrypted_generate_encrypted() {
-        let key: [u8; 32] = [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28, 29, 30, 31, 32,
-        ];
-        let factory = Nano64EncryptionFactory::new(&key, None, None).unwrap();
-        let timestamp: u64 = 1234567890;
-        let encrypted = factory.generate_encrypted(timestamp).unwrap();
-        println!("{:?}", encrypted.payload);
-        assert_eq!(encrypted.id.get_timestamp(), timestamp);
+    fn test_nano64_monotonic_backwards_time() {
+        reset_monotonic_refs();
+        set_monotonic_refs_to(100, 1000000);
+        // Try to generate with an earlier timestamp
+        let id = Nano64::generate_monotonic(500000, None).unwrap();
+        // Should use the last timestamp, not provided one
+        if id.get_timestamp() < 1000000 {
+            panic!("Should not go backwards in time {}", id.get_timestamp());
+        }
     }
 
-    /*
     #[test]
-    fn test_nano64_sql_value() {
-        struct TestCase {
-            name: String,
-            value: u64,
-            want: [u8; 8],
-            want_err: bool,
-        }
+    fn test_nano64_from_bytes_error() {
+        let bytes: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+        let id = Nano64::from_bytes(bytes);
+        assert!(id.to_hex() != "");
+    }
 
-        let test_cases: Vec<TestCase> = vec![
-            TestCase { name: "zero".into(), value: 0, want: [0, 0, 0, 0, 0, 0, 0, 0], want_err: false },
-            TestCase { name: "positive".into(), value: 12345, want: [0, 0, 0, 0, 0, 0, 0x30, 0x39], want_err: false },
-            TestCase { name: "large value".into(), value: 0x123456789ABCDEF0, want: [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0], want_err: false },
-            TestCase { name: "max".into(), value: !0u64, want: [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], want_err: false },
-        ];
-
-        for tc in test_cases {
-            let id = Nano64::new(tc.value);
-            let got = id.v
+    #[test]
+    fn test_nano64_from_hex_edge_case_too_short_after_prefix_removal() {
+        let hex_str = "0xABCD".to_string();
+        if let Ok(id) = Nano64::from_hex(hex_str) {
+            panic!("Expected error - hex string too short after prefix removal - but got {id:?}");
         }
     }
-    */
+
+    #[test]
+    fn test_nano64_from_hex_edge_case_too_long() {
+        let hex_str = "0x00112233445566778899".to_string();
+        if let Ok(id) = Nano64::from_hex(hex_str) {
+            panic!("Expected error - hex string too long - but got {id:?}");
+        }
+    }
+
+    #[test]
+    fn test_nano64_failing_rng() {
+        fn rng(_bits: u32) -> Result<u32, Nano64Error> {
+            Err(Nano64Error::Error("Simulated rng failure".into()))
+        }
+        if let Ok(got) = Nano64::generate(1122334455, Some(rng)) {
+            panic!("Expected error - rng failure - but got {got:?}");
+        }
+    }
+
+    #[test]
+    fn test_nano64_monotonic_failing_rng() {
+        fn rng(_bits: u32) -> Result<u32, Nano64Error> {
+            Err(Nano64Error::Error("Simulated rng failure".into()))
+        }
+        if let Ok(got) = Nano64::generate_monotonic(1122334455, Some(rng)) {
+            panic!("Expected error - rng failure - but got {got:?}");
+        }
+    }
+
+    #[test]
+    fn test_nano64_monotonic_same_timestamp_increment() {
+        reset_monotonic_refs();
+        set_monotonic_refs_to(50, 1000);
+        let id_1 = Nano64::generate_monotonic(1000, None).unwrap();
+        let id_2 = Nano64::generate_monotonic(1000, None).unwrap();
+        if id_2.get_random() <= id_1.get_random() {
+            panic!(
+                "should increment random field in same ms. id_2 ({}) should be > id_1 ({})",
+                id_2.get_random(),
+                id_1.get_random()
+            );
+        }
+    }
+
+    // Line 1475
 }

@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-mod encryption_factory;
 mod errors;
 mod hex;
 mod monotonic_refs;
@@ -10,9 +9,22 @@ mod nano64_encrypted;
 pub use errors::*;
 pub use hex::*;
 pub use nano64::*;
+pub use nano64_encrypted::*;
 
-pub(crate) use encryption_factory::*;
-pub(crate) use nano64_encrypted::*;
+pub const IV_LENGTH: usize = 12;
+pub const PAYLOAD_LENGTH: usize = IV_LENGTH + 8 + 16;
+// TIMESTAMP_BITS is the number of bits allocated to the millisecond timestamp (0..2^44-1).
+pub const TIMESTAMP_BITS: u64 = 44;
+// RANDOM_BITS is the number of bits allocated to the random field per millisecond (0..2^20-1).
+pub const RANDOM_BITS: u64 = 20;
+// TIMESTAMP_SHIFT is the bit shift used to position the timestamp above the random field.
+pub(crate) const TIMESTAMP_SHIFT: u64 = RANDOM_BITS;
+// TIMESTAMP_MASK is the mask for extracting the 44-bit timestamp from a u64 value.
+pub(crate) const TIMESTAMP_MASK: u64 = (1 << TIMESTAMP_BITS) - 1;
+// RANDOM_MASK is the mask for the 20-bit random field.
+pub(crate) const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
+// MAX_TIMESTAMP is the maximum timestamp value (2^44 - 1).
+pub(crate) const MAX_TIMESTAMP: u64 = TIMESTAMP_MASK;
 
 // Compare compares two IDs as unsigned 64-bit numbers.
 // Returns -1 if a < b, 0 if a == b, 1 if a > b.

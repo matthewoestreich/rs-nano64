@@ -1,22 +1,9 @@
 use crate::{
-    Clock, Hex, Nano64EncryptionFactory, Nano64Error, RandomNumberGeneratorImpl, compare,
-    default_rng, monotonic_refs::*, time_now_since_epoch_ms,
+    Clock, Hex, MAX_TIMESTAMP, Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, RANDOM_MASK,
+    RandomNumberGeneratorImpl, TIMESTAMP_MASK, TIMESTAMP_SHIFT, compare, default_rng,
+    monotonic_refs::*, time_now_since_epoch_ms,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-// TIMESTAMP_BITS is the number of bits allocated to the millisecond timestamp (0..2^44-1).
-pub const TIMESTAMP_BITS: u64 = 44;
-// RANDOM_BITS is the number of bits allocated to the random field per millisecond (0..2^20-1).
-pub const RANDOM_BITS: u64 = 20;
-
-// TIMESTAMP_SHIFT is the bit shift used to position the timestamp above the random field.
-const TIMESTAMP_SHIFT: u64 = RANDOM_BITS;
-// TIMESTAMP_MASK is the mask for extracting the 44-bit timestamp from a u64 value.
-const TIMESTAMP_MASK: u64 = (1 << TIMESTAMP_BITS) - 1;
-// RANDOM_MASK is the mask for the 20-bit random field.
-const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
-// MAX_TIMESTAMP is the maximum timestamp value (2^44 - 1).
-const MAX_TIMESTAMP: u64 = TIMESTAMP_MASK;
 
 #[derive(Clone, Debug)]
 pub struct Nano64 {
@@ -135,7 +122,29 @@ impl Nano64 {
         Ok(Self { value })
     }
 
-    fn generate_monotonic(
+    pub(crate) fn generate(
+        timestamp: u64,
+        rng: Option<RandomNumberGeneratorImpl>,
+    ) -> Result<Self, Nano64Error> {
+        if timestamp > MAX_TIMESTAMP {
+            return Err(Nano64Error::TimeStampExceedsBitRange(timestamp));
+        }
+
+        let rng = if let Some(_rng) = rng {
+            _rng
+        } else {
+            default_rng
+        };
+
+        let random_value = rng(RANDOM_BITS as u32)?;
+        let ms = timestamp & TIMESTAMP_MASK;
+        let random = (random_value as u64) & RANDOM_MASK;
+        let value = (ms << TIMESTAMP_SHIFT) | random;
+
+        Ok(Self { value })
+    }
+
+    pub(crate) fn generate_monotonic(
         timestamp: u64,
         rng: Option<RandomNumberGeneratorImpl>,
     ) -> Result<Self, Nano64Error> {
@@ -187,28 +196,6 @@ impl Nano64 {
         let ms = ts & TIMESTAMP_MASK;
         let value = (ms << TIMESTAMP_SHIFT) | random;
         return Ok(Self { value });
-    }
-
-    pub(crate) fn generate(
-        timestamp: u64,
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Self, Nano64Error> {
-        if timestamp > MAX_TIMESTAMP {
-            return Err(Nano64Error::TimeStampExceedsBitRange(timestamp));
-        }
-
-        let rng = if let Some(_rng) = rng {
-            _rng
-        } else {
-            default_rng
-        };
-
-        let random_value = rng(RANDOM_BITS as u32)?;
-        let ms = timestamp & TIMESTAMP_MASK;
-        let random = (random_value as u64) & RANDOM_MASK;
-        let value = (ms << TIMESTAMP_SHIFT) | random;
-
-        Ok(Self { value })
     }
 }
 
@@ -655,10 +642,12 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_failing_rng() {
+        reset_monotonic_refs();
+        set_monotonic_refs_to(0, 1000);
         fn rng(_bits: u32) -> Result<u32, Nano64Error> {
             Err(Nano64Error::Error("Simulated rng failure".into()))
         }
-        if let Ok(got) = Nano64::generate_monotonic(1122334455, Some(rng)) {
+        if let Ok(got) = Nano64::generate_monotonic(12345, Some(rng)) {
             panic!("Expected error - rng failure - but got {got:?}");
         }
     }

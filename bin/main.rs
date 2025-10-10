@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nano64::Nano64;
+use nano64::*;
 
 fn main() {
     let high_speed_count = 10_000_000;

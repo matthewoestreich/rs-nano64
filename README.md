@@ -193,7 +193,7 @@ The collision resistance test performs four comprehensive scenarios:
 1. **Single-threaded high-speed**: 5.3M IDs/sec with 0.29% collisions
 2. **Concurrent generation**: TBD
 3. **Sustained safe rate**: 145k IDs/sec over 10 seconds with <0.05% collisions
-4. **Maximum throughput burst**: 3.8M IDs/sec with 0.18% collisions
+4. **Maximum throughput burst**: 4.9M IDs/sec with 0.21% collisions
 
 ## Tests
 

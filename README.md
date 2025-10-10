@@ -177,13 +177,6 @@ factory.from_encrypted_bytes(bytes: &[u8]) -> Result<Nano64Encrypted, Nano64Erro
 | 44   | Timestamp (ms) | Chronological order | 1970–2527             |
 | 20   | Random         | Collision avoidance | 1,048,576 patterns/ms |
 
-**Collision characteristics:**
-
-- Theoretical: ~1% collision probability at 145 IDs/millisecond
-- Real-world sustained rate (145k IDs/sec): <0.05% collision rate
-- High-speed burst (3.4M IDs/sec): ~0.18% collision rate
-- Concurrent generation (10.6M IDs/sec): ~0.58% collision rate
-
 ## Benchmark
 
 Run the collision resistance demonstration:

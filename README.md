@@ -2,6 +2,7 @@
 
 **Nano64** is a lightweight library for generating time-sortable, globally unique IDs that offer the same practical guarantees as ULID or UUID in half the storage footprint; reducing index and I/O overhead while preserving cryptographic-grade randomness. Includes optional monotonic sequencing and AES-GCM encryption.
 
+[![Crates.io](https://img.shields.io/crates/v/nano64.svg)](https://crates.io/crates/nano64)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **Note:** This is a Rust port of the original [Nano64 TypeScript/JavaScript library](https://github.com/only-cliches/nano64) by [@only-cliches](https://github.com/only-cliches). All credit for the original concept, design, and implementation goes to the original author. This port aims to bring the same powerful, compact ID generation capabilities to the Rust ecosystem.

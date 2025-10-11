@@ -125,9 +125,9 @@ fn analyze_peak_ms(max_per_ms: u64, max_collisions: u64) {
         );
     }
     println!(
-        "    • This is {:.1}× the safe rate (~{:.2} IDs/ms for 1% risk)",
+        "    • This is {:.1}× the safe rate (~{} IDs/ms for 1% risk)",
         n / safe_rate,
-        with_commas(safe_rate)
+        with_commas(format!("{safe_rate:.2}"))
     );
     println!(
         "    • Probability of at least one collision: {:.2}%",

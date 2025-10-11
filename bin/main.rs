@@ -307,7 +307,7 @@ fn test_concurrent_generation_generate_ids_as_fast_as_possible(total_ids: u64, n
 
     println!("  Threads: {num_threads}");
     println!("  Generated: {}", with_commas(total_generated));
-    println!("  Elapsed: {}ms", with_commas(elapsed.as_millis()));
+    println!("  Duration: {}ms", with_commas(elapsed.as_millis()));
     println!(
         "  Collisions: {} ({:.6}%)",
         with_commas(collisions.load(Ordering::Relaxed)),

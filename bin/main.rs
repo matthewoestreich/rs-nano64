@@ -1,5 +1,9 @@
 use std::{
     collections::{HashMap, HashSet},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, AtomicUsize, Ordering},
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -11,16 +15,55 @@ fn main() {
     let max_throughput_duration = Duration::from_millis(1000);
     let sustained_rate_count = 145_000;
     let sustained_rate_duration = Duration::from_millis(10_000);
+    let concurrent_generation_count = 5_000_000;
+    let concurrent_generation_num_threads = 10;
+    let concurrent_generation_as_fast_as_possible_count = 20_000_000;
+    let concurrent_generation_as_fast_as_possible_num_threads = 40;
+    let concurrent_generation_as_fast_as_possible_count_no_collision_tracking = 200_000_000;
+    let concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking = 100;
 
+    /************************* Max Throughput **************************/
     println!("\nTesting max throughput [{max_throughput_duration:?} burst]:");
     test_max_throughput(max_throughput_duration);
 
+    /********************** High Speed Generation **********************/
     println!(
         "\nTesting high speed generation: Generating {} IDs as fast as possible.",
         with_commas(high_speed_count)
     );
     test_high_speed_generation(high_speed_count);
 
+    /********************* Concurrent Generation ***********************/
+    println!(
+        "\nTesting concurrent generation : {} IDs over {concurrent_generation_num_threads} threads",
+        with_commas(concurrent_generation_count)
+    );
+    test_concurrent_generation(
+        concurrent_generation_count,
+        concurrent_generation_num_threads,
+    );
+
+    /********* Concurrent Generation (as fast as possible, track collisions) **************/
+    println!(
+        "\nTesting concurrent generation : {} IDs over {concurrent_generation_as_fast_as_possible_num_threads} threads as fast as possible (track collisions)",
+        with_commas(concurrent_generation_as_fast_as_possible_count)
+    );
+    test_concurrent_generation_generate_ids_as_fast_as_possible(
+        concurrent_generation_as_fast_as_possible_count,
+        concurrent_generation_as_fast_as_possible_num_threads,
+    );
+
+    /********* Concurrent Generation (as fast as possible, NO collision tracking) **************/
+    println!(
+        "\nTesting concurrent generation : {} IDs over {concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking} threads as fast as possible (NO collision tracking)",
+        with_commas(concurrent_generation_as_fast_as_possible_count_no_collision_tracking)
+    );
+    test_concurrent_generation_generate_ids_as_fast_as_possible_without_counting_collisions(
+        concurrent_generation_as_fast_as_possible_count_no_collision_tracking,
+        concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking,
+    );
+
+    /************************** Sustained Rate *************************/
     println!(
         "\nTesting sustained rate: {} IDs/sec for {sustained_rate_duration:?}",
         with_commas(sustained_rate_count)
@@ -164,6 +207,150 @@ fn test_max_throughput(duration: Duration) {
     );
     println!("  Most IDs in a single ms (timestamp, count) : {timestamp_with_most_ids:?}");
     println!("  Fewest IDs in a single ms (timestamp, count) : {timestamp_with_fewest_ids:?}");
+}
+
+fn test_concurrent_generation(total_count: u64, num_threads: usize) {
+    let seen = Arc::new(Mutex::new(HashSet::<u64>::new()));
+    let collisions = Arc::new(AtomicU64::new(0));
+    let count_per_thread = total_count / num_threads as u64;
+    let mut handles = Vec::with_capacity(num_threads);
+
+    let start = Instant::now();
+
+    for _ in 0..num_threads {
+        let seen = Arc::clone(&seen);
+        let collisions = Arc::clone(&collisions);
+
+        let handle = thread::spawn(move || {
+            for _ in 0..count_per_thread {
+                let id = Nano64::generate_default().unwrap();
+                let value = id.u64_value();
+
+                let mut set = seen.lock().unwrap();
+                if !set.insert(value) {
+                    collisions.fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
+    let elapsed = start.elapsed();
+    let elapsed_ms = format!("{:.3?}", elapsed.as_millis());
+    let unique_count = seen.lock().unwrap().len();
+    let total_generated = unique_count as u64 + collisions.load(Ordering::Relaxed);
+    let rate = format!("{:.2}", total_generated as f64 / elapsed.as_secs_f64());
+
+    println!(
+        "  Generated: {} IDs across {num_threads} threads",
+        with_commas(total_generated)
+    );
+    println!("  Duration: {}ms", with_commas(elapsed_ms));
+    println!("  Rate: {} IDs/sec", with_commas(rate));
+    println!(
+        "  Collisions: {} ({:.6}%)",
+        with_commas(collisions.load(Ordering::Relaxed)),
+        with_commas(collisions.load(Ordering::Relaxed) as f64 / total_generated as f64 * 100.0)
+    );
+    println!("  Unique IDs: {}", with_commas(unique_count));
+}
+
+fn test_concurrent_generation_generate_ids_as_fast_as_possible(total_ids: u64, num_threads: usize) {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let collisions = Arc::new(AtomicU64::new(0));
+    let mut handles = Vec::new();
+
+    let start = Instant::now();
+
+    for _ in 0..num_threads {
+        let counter = Arc::clone(&counter);
+        let collisions = Arc::clone(&collisions);
+
+        handles.push(thread::spawn(move || {
+            let mut local_seen = HashSet::new();
+            let mut local_collisions = 0u64;
+
+            while counter.fetch_add(1, Ordering::Relaxed) < total_ids as usize {
+                let id = Nano64::generate_default().unwrap();
+                let value = id.u64_value();
+
+                if !local_seen.insert(value) {
+                    local_collisions += 1;
+                }
+            }
+
+            collisions.fetch_add(local_collisions, Ordering::Relaxed);
+            local_seen
+        }));
+    }
+
+    // Merge local sets
+    let mut global_seen = HashSet::new();
+    let mut total_generated = 0usize;
+
+    for handle in handles {
+        let local_set = handle.join().unwrap();
+        total_generated += local_set.len();
+
+        for value in local_set {
+            global_seen.insert(value);
+        }
+    }
+
+    let elapsed = start.elapsed();
+    let rate = format!("{:.2}", total_ids as f64 / elapsed.as_secs_f64());
+
+    println!("  Threads: {num_threads}");
+    println!("  Generated: {}", with_commas(total_generated));
+    println!("  Elapsed: {}ms", with_commas(elapsed.as_millis()));
+    println!(
+        "  Collisions: {} ({:.6}%)",
+        with_commas(collisions.load(Ordering::Relaxed)),
+        with_commas(collisions.load(Ordering::Relaxed) as f64 / total_ids as f64 * 100.0)
+    );
+    println!("  Rate: {} IDs/sec", with_commas(rate));
+}
+
+fn test_concurrent_generation_generate_ids_as_fast_as_possible_without_counting_collisions(
+    total_ids: u64,
+    num_threads: usize,
+) {
+    let counter = Arc::new(AtomicUsize::new(0));
+    let mut handles = Vec::new();
+
+    let start = Instant::now();
+
+    for _ in 0..num_threads {
+        let counter = Arc::clone(&counter);
+
+        handles.push(thread::spawn(move || {
+            let mut local = 0usize;
+            while counter.fetch_add(1, Ordering::Relaxed) < total_ids as usize {
+                let _id = Nano64::generate_default().unwrap();
+                local += 1;
+            }
+            local
+        }));
+    }
+
+    let mut total_generated = 0usize;
+    for h in handles {
+        total_generated += h.join().unwrap();
+    }
+
+    let elapsed = start.elapsed();
+    let elapsed_ms = format!("{:.3?}", elapsed.as_millis());
+    let rate = format!("{:.2}", total_generated as f64 / elapsed.as_secs_f64());
+
+    println!("  Threads: {num_threads}");
+    println!("  Generated: {}", with_commas(total_generated));
+    println!("  Duration: {}ms", with_commas(elapsed_ms));
+    println!("  Rate: {} IDs/sec", with_commas(rate));
 }
 
 fn with_commas<T: ToString>(value: T) -> String {

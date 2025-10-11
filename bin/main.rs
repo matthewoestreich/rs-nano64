@@ -11,22 +11,24 @@ use std::{
 use nano64::*;
 
 fn main() {
-    let high_speed_count = 10_000_000;
+    let high_speed_count = 5_000_000;
+
     let max_throughput_duration = Duration::from_millis(1000);
+
     let sustained_rate_count = 145_000;
     let sustained_rate_duration = Duration::from_millis(10_000);
+
     let concurrent_generation_uncoordinated_threads_count = 20_000_000;
     let concurrent_generation_uncoordinated_threads_num_threads = 100;
+
     let concurrent_generation_with_coordinated_threads_count = 20_000_000;
     let concurrent_generation_with_coordinated_threads_num_threads = 100;
+
     let concurrent_generation_as_fast_as_possible_count = 20_000_000;
     let concurrent_generation_as_fast_as_possible_num_threads = 40;
+
     let concurrent_generation_as_fast_as_possible_count_no_collision_tracking = 200_000_000;
     let concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking = 100;
-
-    /************************* Max Throughput **************************/
-    println!("\nTesting max throughput [{max_throughput_duration:?} burst]:");
-    test_max_throughput(max_throughput_duration);
 
     /********************** High Speed Generation **********************/
     println!(
@@ -84,6 +86,53 @@ fn main() {
         with_commas(sustained_rate_count)
     );
     test_sustained_rate(sustained_rate_count, sustained_rate_duration);
+
+    /************************* Max Throughput **************************/
+    println!("\nTesting max throughput [{max_throughput_duration:?} burst]:");
+    let max_throughput_result = test_max_throughput(max_throughput_duration);
+
+    /*********************** Print analysis ************************/
+    analyze_peak_ms(max_throughput_result.0, max_throughput_result.1);
+}
+
+fn analyze_peak_ms(max_per_ms: u64, max_collisions: u64) {
+    println!("\n======= Analysis of peak MS (from [max throughput test]) =========");
+    println!("  At peak rate of {} IDs/ms", with_commas(max_per_ms));
+
+    const RANDOM_BITS: u32 = 20;
+    #[allow(non_snake_case)]
+    let R = (1u64 << RANDOM_BITS) as f64; // 1,048,576 possible values
+    let n = max_per_ms as f64;
+
+    // Expected collisions using birthday paradox
+    let expected_collisions = (n * n) / (2.0 * R);
+
+    // Probability that at least one collision occurs (Poisson approx)
+    let prob_at_least_one = 1.0 - (-n * (n - 1.0) / (2.0 * R)).exp();
+
+    // 1% collision probability threshold
+    let safe_rate = (2.0 * R * 0.01).sqrt();
+
+    println!("    • Expected collisions: {expected_collisions:.2}");
+    println!(
+        "    • Actual collisions observed: {}",
+        with_commas(max_collisions)
+    );
+    if expected_collisions > 0.0 {
+        println!(
+            "    • Observed/expected ratio: {:.1}x",
+            max_collisions as f64 / expected_collisions
+        );
+    }
+    println!(
+        "    • This is {:.1}× the safe rate (~{:.2} IDs/ms for 1% risk)",
+        n / safe_rate,
+        with_commas(safe_rate)
+    );
+    println!(
+        "    • Probability of at least one collision: {:.2}%",
+        prob_at_least_one * 100.0
+    );
 }
 
 fn test_high_speed_generation(count: u64) {
@@ -105,7 +154,10 @@ fn test_high_speed_generation(count: u64) {
     let collision_prob = collisions as f64 / unique_ids * 100.0;
 
     println!("  Generated {} IDs", with_commas(count));
-    println!("  Time: {:.6}ms", with_commas(start.elapsed().as_millis()));
+    println!(
+        "  Duration: {:.6}ms",
+        with_commas(start.elapsed().as_millis())
+    );
     println!("  Rate: {} IDs/Second", with_commas(rate));
     println!("  Collisions: {}", with_commas(collisions));
     println!(
@@ -169,10 +221,11 @@ fn test_sustained_rate(target_rate: u64, duration: Duration) {
     println!("  Milliseconds with IDs: {}", with_commas(ms_stats.len()));
 }
 
-fn test_max_throughput(duration: Duration) {
+fn test_max_throughput(duration: Duration) -> (u64, u64) {
     let mut seen = HashSet::<u64>::new();
     let mut collisions = 0;
     let mut ids_per_ms = HashMap::<u64, u64>::new();
+    let mut collisions_per_timestamp = HashMap::<u64, u64>::new();
 
     const TIME_CHECK_INTERVAL: u64 = 1000;
     let start = Instant::now();
@@ -186,6 +239,7 @@ fn test_max_throughput(duration: Duration) {
             let timestamp = id.get_timestamp();
             if !seen.insert(value) {
                 collisions += 1;
+                *collisions_per_timestamp.entry(timestamp).or_insert(0) += 1;
             }
             *ids_per_ms.entry(timestamp).or_insert(0) += 1;
         }
@@ -202,6 +256,16 @@ fn test_max_throughput(duration: Duration) {
     let mut sorted_ids_per_ms: Vec<(&u64, &u64)> = ids_per_ms.iter().collect();
     sorted_ids_per_ms.sort_by(|a, b| b.1.cmp(a.1));
 
+    // Sort collisions by ms
+    let mut sorted_collisions_per_timestamp: Vec<(&u64, &u64)> =
+        collisions_per_timestamp.iter().collect();
+    sorted_collisions_per_timestamp.sort_by(|a, b| b.1.cmp(a.1));
+    let max_collision = sorted_collisions_per_timestamp[0];
+
+    let timestamp_with_most_ids_collisions = collisions_per_timestamp
+        .get(sorted_ids_per_ms[0].0)
+        .unwrap();
+
     let total_generated_ids = seen.len() + collisions;
     let timestamp_with_most_ids = sorted_ids_per_ms[0];
     let timestamp_with_fewest_ids = sorted_ids_per_ms[sorted_ids_per_ms.len() - 1];
@@ -209,7 +273,7 @@ fn test_max_throughput(duration: Duration) {
     let rate = format!("{:.2}", total_generated_ids as f64 / elapsed.as_secs_f64());
 
     println!("  Duration : {:.6}ms", with_commas(elapsed.as_millis()));
-    println!("  Rate : {} IDs/sec", with_commas(rate));
+    println!("  Rate : {} IDs/ms", with_commas(rate));
     println!(
         "  Total Generated IDs : {}",
         with_commas(total_generated_ids)
@@ -221,7 +285,19 @@ fn test_max_throughput(duration: Duration) {
         with_commas(collision_prob)
     );
     println!("  Most IDs in a single ms (timestamp, count) : {timestamp_with_most_ids:?}");
+    println!(
+        "  Most IDs in a single ms had {} collisions",
+        with_commas(timestamp_with_most_ids_collisions)
+    );
     println!("  Fewest IDs in a single ms (timestamp, count) : {timestamp_with_fewest_ids:?}");
+    println!(
+        "  Most collisions in a single ms: {} (at timestamp {} had {} IDs created)",
+        with_commas(max_collision.1),
+        max_collision.0,
+        with_commas(ids_per_ms.get(max_collision.0).unwrap())
+    );
+
+    (*timestamp_with_most_ids.1, *max_collision.1)
 }
 
 fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_threads: usize) {
@@ -272,10 +348,8 @@ fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_thread
     println!(
         "  Note: Threads are not coordinated, which means collision rate should increase dramatically.\n  Note: More threads = more collisions."
     );
-    println!(
-        "  Generated: {} IDs across {num_threads} threads",
-        with_commas(total_generated)
-    );
+    println!("  Generated: {} IDs", with_commas(total_generated));
+    println!("  Threads: {num_threads}");
     println!("  Duration: {}ms", with_commas(elapsed_ms));
     println!("  Rate: {} IDs/sec", with_commas(format!("{rate:.2}")));
     println!(

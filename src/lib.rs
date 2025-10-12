@@ -1,3 +1,9 @@
+//!
+//! 64-bit Time-Sortable Identifiers for Rust
+//!
+//! Please see our [README.md](https://github.com/matthewoestreich/rs-nano64) for more info, including examples.
+//!
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 mod errors;
@@ -57,18 +63,14 @@ fn default_rng(bits: u32) -> Result<u32, Nano64Error> {
     if bits == 0 || bits > 32 {
         return Err(Nano64Error::Error(format!("bits must be 1-32, got {bits}")));
     }
-
     // Generate 4 random bytes
     let mut buf = [0u8; 4];
     rand::fill(&mut buf);
-
     // Convert bytes to u32
     let mut val = u32::from_be_bytes(buf);
-
     // Mask to requested number of bits
     if bits < 32 {
         val &= (1u32 << bits) - 1;
     }
-
     Ok(val)
 }

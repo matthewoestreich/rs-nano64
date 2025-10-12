@@ -21,14 +21,14 @@ fn main() {
     let concurrent_generation_uncoordinated_threads_count = 20_000_000;
     let concurrent_generation_uncoordinated_threads_num_threads = 100;
 
-    let concurrent_generation_with_coordinated_threads_count = 20_000_000;
-    let concurrent_generation_with_coordinated_threads_num_threads = 100;
+    let concurrent_generation_with_coordinated_threads_count = 5_000_000;
+    let concurrent_generation_with_coordinated_threads_num_threads = 10;
 
     let concurrent_generation_as_fast_as_possible_count = 20_000_000;
     let concurrent_generation_as_fast_as_possible_num_threads = 40;
 
     let concurrent_generation_as_fast_as_possible_count_no_collision_tracking = 200_000_000;
-    let concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking = 100;
+    let concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking = 10;
 
     /********************** High Speed Generation **********************/
     println!(
@@ -297,7 +297,10 @@ fn test_max_throughput(duration: Duration) -> (u64, u64) {
         with_commas(ids_per_ms.get(max_collision.0).unwrap())
     );
 
-    (*timestamp_with_most_ids.1, *timestamp_with_most_ids_collisions /* max_collision.1 */ )
+    (
+        *timestamp_with_most_ids.1,
+        *timestamp_with_most_ids_collisions, /* max_collision.1 */
+    )
 }
 
 fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_threads: usize) {

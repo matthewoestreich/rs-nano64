@@ -11,8 +11,14 @@ pub struct Nano64 {
 }
 
 impl Nano64 {
+    /// If provided `value` is not a timestamp with ms precision we will use the current time as your value.
+    /// A timestamp with ms precision should contain 12-14 digits, inclusive.
     pub fn new(value: u64) -> Self {
-        Self { value }
+        if Self::is_timestamp_ms_precision(value) {
+            Self { value }
+        } else {
+            Self::new_now_raw(None)
+        }
     }
 
     pub fn encrypted_factory(
@@ -197,6 +203,41 @@ impl Nano64 {
         let value = (ms << TIMESTAMP_SHIFT) | random;
         return Ok(Self { value });
     }
+
+    // Called "raw" because no checks are performed. Not needed as this is
+    // a private method and should not be exposed to the public.
+    // Essentially uses the current time as the `value` and the `default_rng`
+    // without any checks (not required). For private use only.
+    // Needed if/when a user provides a timestamp that is not ms precision.
+    pub(crate) fn new_now_raw(clock: Option<Clock>) -> Self {
+        let clock = if let Some(c) = clock {
+            c
+        } else {
+            time_now_since_epoch_ms
+        };
+
+        // Gets current timestamp.
+        let timestamp = clock();
+
+        // Uses "default_rng" without any checks (we control random_bits)
+        let mut buf = [0u8; 4];
+        rand::fill(&mut buf);
+        let mut random_value = u32::from_be_bytes(buf);
+        random_value &= (1u32 << RANDOM_BITS) - 1; // Mask to 20 bits
+
+        let ms = timestamp & TIMESTAMP_MASK;
+        let random = (random_value as u64) & RANDOM_MASK;
+        let value = (ms << TIMESTAMP_SHIFT) | random;
+
+        Self { value }
+    }
+
+    pub(crate) fn is_timestamp_ms_precision(timestamp: u64) -> bool {
+        let min = 12; // Min digits required for UNIX timestamp with ms precision.
+        let max = 14; // Max digits required for UNIX timestamp with ms precision.
+        let len = timestamp.to_string().len();
+        timestamp > 0 && len >= min && len <= max
+    }
 }
 
 #[cfg(test)]
@@ -223,9 +264,9 @@ mod tests {
         let _zero = 0;
         let _max = !0u64;
         let _random = 0x123456789ABCDEF0;
-        let id_zero = Nano64::new(_zero);
-        let id_max = Nano64::new(_max);
-        let id_random = Nano64::new(_random);
+        let id_zero = Nano64 { value: _zero };
+        let id_max = Nano64 { value: _max };
+        let id_random = Nano64 { value: _random };
         assert_eq!(id_zero.u64_value(), _zero);
         assert_eq!(id_max.u64_value(), _max);
         assert_eq!(id_random.u64_value(), _random);
@@ -277,9 +318,9 @@ mod tests {
         let _max_expect = "FFFFFFFFFFF-FFFFF";
         let _example = 0x123456789ABCDEF0;
         let _example_expect = "123456789AB-CDEF0";
-        let id_zero = Nano64::new(_zero);
-        let id_max = Nano64::new(_max);
-        let id_example = Nano64::new(_example);
+        let id_zero = Nano64 { value: _zero };
+        let id_max = Nano64 { value: _max };
+        let id_example = Nano64 { value: _example };
         assert_eq!(id_zero.to_hex(), _zero_expect);
         assert_eq!(id_max.to_hex(), _max_expect);
         assert_eq!(id_example.to_hex(), _example_expect);
@@ -370,7 +411,9 @@ mod tests {
 
     #[test]
     fn test_nano64_to_bytes_from_bytes() {
-        let original = Nano64::new(0x123456789ABCDEF0);
+        let original = Nano64 {
+            value: 0x123456789ABCDEF0,
+        };
         let bytes = original.to_bytes();
         let parsed = Nano64::from_bytes(bytes);
         assert_eq!(parsed.u64_value(), original.u64_value());
@@ -378,9 +421,9 @@ mod tests {
 
     #[test]
     fn test_nano64_compare() {
-        let id_1 = Nano64::new(100);
-        let id_2 = Nano64::new(200);
-        let id_3 = Nano64::new(100);
+        let id_1 = Nano64 { value: 100 };
+        let id_2 = Nano64 { value: 200 };
+        let id_3 = Nano64 { value: 100 };
         assert!(compare(&id_1, &id_2) == -1);
         assert!(compare(&id_2, &id_1) == 1);
         assert!(compare(&id_1, &id_3) == 0);
@@ -388,9 +431,9 @@ mod tests {
 
     #[test]
     fn test_nano64_equals() {
-        let id_1 = Nano64::new(100);
-        let id_2 = Nano64::new(200);
-        let id_3 = Nano64::new(100);
+        let id_1 = Nano64 { value: 100 };
+        let id_2 = Nano64 { value: 200 };
+        let id_3 = Nano64 { value: 100 };
         assert!(!id_1.equals(&id_2));
         assert!(id_1.equals(&id_3));
     }
@@ -524,7 +567,9 @@ mod tests {
 
     #[test]
     fn test_nano64_string() {
-        let id = Nano64::new(0x123456789ABCD);
+        let id = Nano64 {
+            value: 0x123456789ABCD,
+        };
         let str = id.string();
         assert_ne!(str, "");
         assert!(str.contains("Nano64"));

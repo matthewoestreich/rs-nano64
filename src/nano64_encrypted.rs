@@ -86,13 +86,13 @@ impl Nano64EncryptionFactory {
         })
     }
 
+    /// If provided `timestamp` does not have ms precision we will use the current time instead.
+    /// A timestamp with ms precision should contain 12-14 digits, inclusive.
     pub fn generate_encrypted(&self, timestamp: u64) -> Result<Nano64Encrypted, Nano64Error> {
-        let mut ts = timestamp;
-        if ts == 0 {
-            ts = (self.clock)();
+        if !Nano64::is_timestamp_ms_precision(timestamp) {
+            return self.encrypt(Nano64::new_now_raw(Some(self.clock)));
         }
-        let id = Nano64::generate(ts, Some(self.rng))?;
-        self.encrypt(id)
+        self.encrypt(Nano64::generate(timestamp, Some(self.rng))?)
     }
 
     pub fn generate_encrypted_now(&self) -> Result<Nano64Encrypted, Nano64Error> {
@@ -189,7 +189,7 @@ mod tests {
             25, 26, 27, 28, 29, 30, 31, 32,
         ];
         let factory = Nano64EncryptionFactory::new(&key, None, None).unwrap();
-        let timestamp: u64 = 1234567890;
+        let timestamp: u64 = 123456789123;
         let encrypted = factory.generate_encrypted(timestamp).unwrap();
         println!("{:?}", encrypted.payload);
         assert_eq!(encrypted.id.get_timestamp(), timestamp);

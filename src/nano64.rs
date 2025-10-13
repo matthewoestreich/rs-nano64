@@ -232,6 +232,11 @@ mod tests {
         refs.last_timestamp = last_timestamp;
     }
 
+    fn acquire_monotonic_test_lock(func: fn()) {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
+        func();
+    }
+
     #[test]
     fn test_nano64_new() {
         let _zero = 0;
@@ -270,17 +275,19 @@ mod tests {
 
     #[test]
     fn test_nano64_generate_monotonic() {
-        let timestamp: u64 = 1234567890123;
-        fn _rng(_bits: u32) -> Result<u32, Nano64Error> {
-            Ok(0x12345)
-        }
-        // Generate id's
-        let id_1 = Nano64::generate_monotonic(timestamp, Some(_rng)).unwrap();
-        let id_2 = Nano64::generate_monotonic(timestamp, Some(_rng)).unwrap();
-        // Second id should be greater than first
-        assert!(compare(&id_2, &id_1) >= 0);
-        // both shoulld have same timestamp
-        assert_eq!(id_1.get_timestamp(), id_2.get_timestamp());
+        acquire_monotonic_test_lock(|| {
+            let timestamp: u64 = 1234567890123;
+            fn _rng(_bits: u32) -> Result<u32, Nano64Error> {
+                Ok(0x12345)
+            }
+            // Generate id's
+            let id_1 = Nano64::generate_monotonic(timestamp, Some(_rng)).unwrap();
+            let id_2 = Nano64::generate_monotonic(timestamp, Some(_rng)).unwrap();
+            // Second id should be greater than first
+            assert!(compare(&id_2, &id_1) >= 0);
+            // both shoulld have same timestamp
+            assert_eq!(id_1.get_timestamp(), id_2.get_timestamp());
+        });
     }
 
     #[test]
@@ -575,97 +582,121 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_now() {
-        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        set_monotonic_refs_to(0, 0);
-        let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
-            Ok(got) => got,
-            Err(e) => panic!("[id_1] did not expect error {e}"),
-        };
-        let id_2 = match Nano64::generate_monotonic_now(None) {
-            Ok(got) => got,
-            Err(e) => panic!("[id_2] did not expect error {e}"),
-        };
-        assert!(id_1.u64_value() < id_2.u64_value());
+        acquire_monotonic_test_lock(|| {
+            set_monotonic_refs_to(0, 0);
+            let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
+                Ok(got) => got,
+                Err(e) => panic!("[id_1] did not expect error {e}"),
+            };
+            let id_2 = match Nano64::generate_monotonic_now(None) {
+                Ok(got) => got,
+                Err(e) => panic!("[id_2] did not expect error {e}"),
+            };
+            assert!(id_1.u64_value() < id_2.u64_value());
+        });
     }
 
     #[test]
     fn test_monotonic_race() {
-        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
+        acquire_monotonic_test_lock(race);
 
-        let num_ids_to_create = 100_000;
-        let num_threads = 10;
-        let ids_per_thread = num_ids_to_create / num_threads;
+        fn race() {
+            let num_ids_to_create = 100_000;
+            let num_threads = 15;
+            let ids_per_thread = num_ids_to_create / num_threads;
+            let remainder = num_ids_to_create % num_threads;
 
-        let mut handles = Vec::new();
+            let mut handles = Vec::new();
 
-        for _ in 0..num_threads {
-            handles.push(thread::spawn(move || {
-                let mut local_ids = Vec::<Nano64>::new();
-                for _ in 0..ids_per_thread {
-                    local_ids.push(Nano64::generate_monotonic_now(None).unwrap())
-                }
-                local_ids
-            }));
-        }
+            if remainder > 0 {
+                handles.push(thread::spawn(move || {
+                    let mut local_ids = Vec::<Nano64>::new();
+                    for _ in 0..remainder {
+                        local_ids.push(Nano64::generate_monotonic_now(None).unwrap());
+                    }
+                    local_ids
+                }));
+            }
 
-        let mut global_ids = Vec::<Nano64>::new();
+            for _ in 0..num_threads {
+                handles.push(thread::spawn(move || {
+                    let mut local_ids = Vec::<Nano64>::new();
+                    for _ in 0..ids_per_thread {
+                        local_ids.push(Nano64::generate_monotonic_now(None).unwrap());
+                    }
+                    local_ids
+                }));
+            }
 
-        for handle in handles {
-            let mut thread_ids = handle.join().unwrap();
-            global_ids.append(&mut thread_ids);
-        }
+            let mut global_ids = Vec::<Nano64>::new();
 
-        global_ids.sort_by_key(|id| id.u64_value());
+            for handle in handles {
+                let mut thread_ids = handle.join().unwrap();
+                global_ids.append(&mut thread_ids);
+            }
 
-        for pair in global_ids.windows(2) {
-            assert!(
-                pair[0].u64_value() < pair[1].u64_value(),
-                "IDs not strictly increasing"
+            assert_eq!(
+                num_ids_to_create,
+                global_ids.len(),
+                "Expected {num_ids_to_create} ids, got {}",
+                global_ids.len()
             );
+
+            global_ids.sort_by_key(|id| id.u64_value());
+
+            for pair in global_ids.windows(2) {
+                assert!(
+                    pair[0].u64_value() < pair[1].u64_value(),
+                    "IDs not strictly increasing"
+                );
+            }
+
+            let unique_count = global_ids
+                .iter()
+                .map(|id| id.u64_value())
+                .collect::<HashSet<_>>()
+                .len();
+
+            assert_eq!(unique_count, global_ids.len(), "Duplicate IDs detected!");
         }
-
-        let unique_count = global_ids
-            .iter()
-            .map(|id| id.u64_value())
-            .collect::<HashSet<_>>()
-            .len();
-
-        assert_eq!(unique_count, global_ids.len(), "Duplicate IDs detected!");
     }
 
     #[test]
     fn test_nano64_monotonic_default() {
-        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        set_monotonic_refs_to(0, 0);
-        let id = match Nano64::generate_monotonic_default() {
-            Ok(got) => got,
-            Err(e) => panic!("unexpected error {e}"),
-        };
-        assert_ne!(id.u64_value(), 0);
+        acquire_monotonic_test_lock(|| {
+            set_monotonic_refs_to(0, 0);
+            let id = match Nano64::generate_monotonic_default() {
+                Ok(got) => got,
+                Err(e) => panic!("unexpected error {e}"),
+            };
+            assert_ne!(id.u64_value(), 0);
+        });
     }
 
     #[test]
     fn test_nano64_monotonic_overflow() {
-        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        // Set refs to maximums, simulate exhaustion.
-        set_monotonic_refs_to(RANDOM_MASK, MAX_TIMESTAMP);
-        if let Ok(got) = Nano64::generate_monotonic(MAX_TIMESTAMP, None) {
-            panic!(
-                "`generate_monotonic` called with max timestamp and exhausted random should error but got {got:?}"
-            );
-        }
+        acquire_monotonic_test_lock(|| {
+            // Set refs to maximums, simulate exhaustion.
+            set_monotonic_refs_to(RANDOM_MASK, MAX_TIMESTAMP);
+            if let Ok(got) = Nano64::generate_monotonic(MAX_TIMESTAMP, None) {
+                panic!(
+                    "`generate_monotonic` called with max timestamp and exhausted random should error but got {got:?}"
+                );
+            }
+        });
     }
 
     #[test]
     fn test_nano64_monotonic_backwards_time() {
-        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        set_monotonic_refs_to(100, 1000000);
-        // Try to generate with an earlier timestamp
-        let id = Nano64::generate_monotonic(500000, None).unwrap();
-        // Should use the last timestamp, not provided one
-        if id.get_timestamp() < 1000000 {
-            panic!("Should not go backwards in time {}", id.get_timestamp());
-        }
+        acquire_monotonic_test_lock(|| {
+            set_monotonic_refs_to(100, 1000000);
+            // Try to generate with an earlier timestamp
+            let id = Nano64::generate_monotonic(500000, None).unwrap();
+            // Should use the last timestamp, not provided one
+            if id.get_timestamp() < 1000000 {
+                panic!("Should not go backwards in time {}", id.get_timestamp());
+            }
+        });
     }
 
     #[test]
@@ -703,30 +734,74 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_failing_rng() {
-        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        set_monotonic_refs_to(0, 1000);
-        fn rng(_bits: u32) -> Result<u32, Nano64Error> {
-            Err(Nano64Error::Error("Simulated rng failure".into()))
-        }
-        if let Ok(got) = Nano64::generate_monotonic(12345, Some(rng)) {
-            panic!("Expected error - rng failure - but got {got:?}");
-        }
+        acquire_monotonic_test_lock(|| {
+            set_monotonic_refs_to(0, 1000);
+            fn rng(_bits: u32) -> Result<u32, Nano64Error> {
+                Err(Nano64Error::Error("Simulated rng failure".into()))
+            }
+            if let Ok(got) = Nano64::generate_monotonic(12345, Some(rng)) {
+                panic!("Expected error - rng failure - but got {got:?}");
+            }
+        });
     }
 
     #[test]
     fn test_nano64_monotonic_same_timestamp_increment() {
-        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        set_monotonic_refs_to(50, 1000);
-        let id_1 = Nano64::generate_monotonic(1000, None).unwrap();
-        let id_2 = Nano64::generate_monotonic(1000, None).unwrap();
-        if id_2.get_random() <= id_1.get_random() {
-            panic!(
-                "should increment random field in same ms. id_2 ({}) should be > id_1 ({})",
-                id_2.get_random(),
-                id_1.get_random()
+        acquire_monotonic_test_lock(|| {
+            set_monotonic_refs_to(50, 1000);
+            let id_1 = Nano64::generate_monotonic(1000, None).unwrap();
+            let id_2 = Nano64::generate_monotonic(1000, None).unwrap();
+            if id_2.get_random() <= id_1.get_random() {
+                panic!(
+                    "should increment random field in same ms. id_2 ({}) should be > id_1 ({})",
+                    id_2.get_random(),
+                    id_1.get_random()
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn test_nano64_generate_with_none_rng() {
+        let timestamp = 12345;
+        let id = if let Ok(got) = Nano64::generate(timestamp, None) {
+            got
+        } else {
+            panic!("Expected 'None' rng to use default_rng under the hood!");
+        };
+        assert_eq!(id.get_timestamp(), timestamp);
+    }
+
+    #[test]
+    fn test_nano64_monotonic_generate_with_none_rng() {
+        acquire_monotonic_test_lock(|| {
+            let timestamp = 12345;
+            let id = if let Ok(got) = Nano64::generate_monotonic(timestamp, None) {
+                got
+            } else {
+                panic!("Expected 'None' rng to use default_rng under the hood!");
+            };
+            assert_eq!(id.get_timestamp(), timestamp);
+        });
+    }
+
+    #[test]
+    fn test_nano64_default_rng_bitmask() {
+        // Test that 1-bit RNG only returns 0 or 1
+        for _ in 0..100 {
+            let rng_val = default_rng(1).unwrap();
+            assert!(
+                rng_val <= 1,
+                "default_rng(1) returned {rng_val}, expected 0 or 1"
+            );
+        }
+        // Test that 2-bit RNG only returns 0-3
+        for _ in 0..100 {
+            let rng_val = default_rng(2).unwrap();
+            assert!(
+                rng_val <= 3,
+                "default_rng(2) returned {rng_val}, expected 0, 1, 2, or 3"
             );
         }
     }
-
-    // Line 1475
 }

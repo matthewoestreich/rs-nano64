@@ -317,4 +317,34 @@ mod tests {
             panic!("ahh");
         };
     }
+
+    #[test]
+    fn test_nano64_encrypted_default_clock() {
+        let key: [u8; 32] = [
+            1, 2, 3, 4, 5, 61, 73, 8, 92, 10, 15, 122, 13, 14, 15, 16, 17, 18, 74, 20, 21, 22, 23,
+            24, 69, 39, 27, 28, 29, 30, 66, 32,
+        ];
+        let factory = Nano64EncryptionFactory::new(&key, None, None).unwrap();
+        assert_ne!(
+            factory.generate_encrypted_now().unwrap().id.get_timestamp(),
+            0,
+            "generate_encrypted_now should use current timestamp!"
+        );
+    }
+
+    #[test]
+    fn test_nano64_encrypted_generate_iv_error() {
+        let key: [u8; 32] = [
+            1, 2, 3, 43, 5, 61, 73, 8, 92, 10, 15, 122, 13, 14, 15, 16, 17, 18, 74, 20, 21, 22, 23,
+            24, 69, 39, 27, 28, 29, 30, 66, 32,
+        ];
+        let factory = Nano64EncryptionFactory::new(&key, None, None).unwrap();
+        let id = Nano64::generate_default().unwrap();
+        let encrypted = factory.encrypt(id).unwrap();
+        assert_eq!(
+            encrypted.to_encrypted_bytes().len(),
+            PAYLOAD_LENGTH,
+            "Encrypted payload has incorrect len"
+        );
+    }
 }

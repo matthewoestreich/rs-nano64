@@ -41,14 +41,6 @@ impl Nano64 {
         return Nano64EncryptionFactory::new(key, clock, rng);
     }
 
-    pub fn get_timestamp(&self) -> u64 {
-        (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
-    }
-
-    pub fn get_random(&self) -> u32 {
-        (self.value & RANDOM_MASK) as u32
-    }
-
     pub fn from_bytes(bytes: [u8; 8]) -> Self {
         Self {
             value: u64::from_be_bytes(bytes),
@@ -89,6 +81,14 @@ impl Nano64 {
 
         let value = u64::from_be_bytes(bytes);
         Ok(Self { value })
+    }
+
+    pub fn get_timestamp(&self) -> u64 {
+        (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
+    }
+
+    pub fn get_random(&self) -> u32 {
+        (self.value & RANDOM_MASK) as u32
     }
 
     pub fn to_bytes(&self) -> [u8; 8] {
@@ -223,13 +223,6 @@ mod tests {
     static MONOTONIC_LOCK_FOR_TESTS: OnceLock<Mutex<()>> = OnceLock::new();
     fn get_monotonic_lock_for_tests() -> &'static Mutex<()> {
         MONOTONIC_LOCK_FOR_TESTS.get_or_init(|| Mutex::new(()))
-    }
-
-    pub(crate) fn reset_monotonic_refs() {
-        let refs = get_monotonic_refs();
-        let mut guard = refs.lock().unwrap();
-        guard.last_timestamp = 0;
-        guard.last_random = 0;
     }
 
     fn set_monotonic_refs_to(last_random: u64, last_timestamp: u64) {
@@ -583,7 +576,7 @@ mod tests {
     #[test]
     fn test_nano64_monotonic_now() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        reset_monotonic_refs();
+        set_monotonic_refs_to(0, 0);
         let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
             Ok(got) => got,
             Err(e) => panic!("[id_1] did not expect error {e}"),
@@ -643,7 +636,7 @@ mod tests {
     #[test]
     fn test_nano64_monotonic_default() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        reset_monotonic_refs();
+        set_monotonic_refs_to(0, 0);
         let id = match Nano64::generate_monotonic_default() {
             Ok(got) => got,
             Err(e) => panic!("unexpected error {e}"),
@@ -654,7 +647,6 @@ mod tests {
     #[test]
     fn test_nano64_monotonic_overflow() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        reset_monotonic_refs();
         // Set refs to maximums, simulate exhaustion.
         set_monotonic_refs_to(RANDOM_MASK, MAX_TIMESTAMP);
         if let Ok(got) = Nano64::generate_monotonic(MAX_TIMESTAMP, None) {
@@ -667,7 +659,6 @@ mod tests {
     #[test]
     fn test_nano64_monotonic_backwards_time() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        reset_monotonic_refs();
         set_monotonic_refs_to(100, 1000000);
         // Try to generate with an earlier timestamp
         let id = Nano64::generate_monotonic(500000, None).unwrap();
@@ -713,7 +704,6 @@ mod tests {
     #[test]
     fn test_nano64_monotonic_failing_rng() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        reset_monotonic_refs();
         set_monotonic_refs_to(0, 1000);
         fn rng(_bits: u32) -> Result<u32, Nano64Error> {
             Err(Nano64Error::Error("Simulated rng failure".into()))
@@ -726,7 +716,6 @@ mod tests {
     #[test]
     fn test_nano64_monotonic_same_timestamp_increment() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        reset_monotonic_refs();
         set_monotonic_refs_to(50, 1000);
         let id_1 = Nano64::generate_monotonic(1000, None).unwrap();
         let id_2 = Nano64::generate_monotonic(1000, None).unwrap();

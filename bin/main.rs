@@ -284,17 +284,25 @@ fn test_max_throughput(duration: Duration) -> (u64, u64) {
         with_commas(collisions),
         with_commas(collision_prob)
     );
-    println!("  Most IDs in a single ms (timestamp, count) : {timestamp_with_most_ids:?}");
+
+    let ts_most_ids_timestamp = timestamp_with_most_ids.0;
+    let ts_most_ids_count = with_commas(timestamp_with_most_ids.1);
+
     println!(
-        "  Most IDs in a single ms had {} collisions",
-        with_commas(timestamp_with_most_ids_collisions)
+        "  Most IDs in a single ms : \n\tIDs Created : {ts_most_ids_count},\n\tTimestamp : {ts_most_ids_timestamp},\n\tCollisions : {timestamp_with_most_ids_collisions}"
     );
-    println!("  Fewest IDs in a single ms (timestamp, count) : {timestamp_with_fewest_ids:?}");
+
+    let ts_fewest_ids_timestamp = timestamp_with_fewest_ids.0;
+    let ts_fewest_ids_count = with_commas(timestamp_with_fewest_ids.1);
+
     println!(
-        "  Most collisions in a single ms: {} (at timestamp {} had {} IDs created)",
+        "  Fewest IDs in a single ms :\n\tIDs Created : {ts_fewest_ids_count},\n\tTimestamp : {ts_fewest_ids_timestamp}"
+    );
+    println!(
+        "  Most collisions in a single ms :\n\tCollisions : {},\n\tTimestamp : {},\n\tIDs Created : {}",
         with_commas(max_collision.1),
         max_collision.0,
-        with_commas(ids_per_ms.get(max_collision.0).unwrap())
+        with_commas(ids_per_ms.get(max_collision.0).unwrap()),
     );
 
     (

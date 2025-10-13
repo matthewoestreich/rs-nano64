@@ -61,11 +61,11 @@ impl Nano64EncryptionFactory {
 
     pub fn encrypt(&self, id: Nano64) -> Result<Nano64Encrypted, Nano64Error> {
         let iv = self.generate_iv();
-        let nonce = GenericArray::from_slice(&iv);
+        let nonce = GenericArray::clone_from_slice(&iv);
         let plaintext = id.value.to_be_bytes();
         let ciphertext = self
             .gcm
-            .encrypt(nonce, plaintext.as_ref())
+            .encrypt(&nonce, plaintext.as_ref())
             .map_err(|e| Nano64Error::Error(format!("Error during encryption! {e}")))?;
 
         if ciphertext.len() != 8 + 16 {

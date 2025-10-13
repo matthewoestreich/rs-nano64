@@ -15,40 +15,12 @@ impl Nano64 {
         Self { value }
     }
 
-    pub fn encrypted_factory(
-        key: &[u8],
-        clock: Option<Clock>,
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Nano64EncryptionFactory, Nano64Error> {
-        return Nano64EncryptionFactory::new(key, clock, rng);
-    }
-
-    pub fn u64_value(&self) -> u64 {
-        self.value
-    }
-
-    pub fn generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Self, Nano64Error> {
-        Self::generate(time_now_since_epoch_ms(), rng)
-    }
-
     pub fn generate_default() -> Result<Self, Nano64Error> {
         Self::generate_now(Some(default_rng))
     }
 
-    pub fn to_bytes(&self) -> [u8; 8] {
-        self.value.to_be_bytes()
-    }
-
-    pub fn get_timestamp(&self) -> u64 {
-        (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
-    }
-
-    pub fn get_random(&self) -> u32 {
-        (self.value & RANDOM_MASK) as u32
-    }
-
-    pub fn to_date(&self) -> SystemTime {
-        UNIX_EPOCH + Duration::from_millis(self.get_timestamp())
+    pub fn generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Self, Nano64Error> {
+        Self::generate(time_now_since_epoch_ms(), rng)
     }
 
     pub fn generate_monotonic_now(
@@ -61,17 +33,20 @@ impl Nano64 {
         Self::generate_monotonic_now(Some(default_rng))
     }
 
-    pub fn equals(&self, other: &Nano64) -> bool {
-        compare(self, other) == 0
+    pub fn encrypted_factory(
+        key: &[u8],
+        clock: Option<Clock>,
+        rng: Option<RandomNumberGeneratorImpl>,
+    ) -> Result<Nano64EncryptionFactory, Nano64Error> {
+        return Nano64EncryptionFactory::new(key, clock, rng);
     }
 
-    pub fn string(&self) -> String {
-        format!(
-            "Nano64{{value={}, timestamp={}, random={}}}",
-            self.value,
-            self.get_timestamp(),
-            self.get_random()
-        )
+    pub fn get_timestamp(&self) -> u64 {
+        (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
+    }
+
+    pub fn get_random(&self) -> u32 {
+        (self.value & RANDOM_MASK) as u32
     }
 
     pub fn from_bytes(bytes: [u8; 8]) -> Self {
@@ -82,12 +57,6 @@ impl Nano64 {
 
     pub fn from_u64(value: u64) -> Self {
         Self { value }
-    }
-
-    pub fn to_hex(&self) -> String {
-        let full = format!("{:016X}", self.value);
-        const SPLIT: usize = 11;
-        format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
     }
 
     pub fn from_hex(hex_str: String) -> Result<Self, Nano64Error> {
@@ -120,6 +89,37 @@ impl Nano64 {
 
         let value = u64::from_be_bytes(bytes);
         Ok(Self { value })
+    }
+
+    pub fn to_bytes(&self) -> [u8; 8] {
+        self.value.to_be_bytes()
+    }
+
+    pub fn to_hex(&self) -> String {
+        let full = format!("{:016X}", self.value);
+        const SPLIT: usize = 11;
+        format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
+    }
+
+    pub fn to_date(&self) -> SystemTime {
+        UNIX_EPOCH + Duration::from_millis(self.get_timestamp())
+    }
+
+    pub fn u64_value(&self) -> u64 {
+        self.value
+    }
+
+    pub fn equals(&self, other: &Nano64) -> bool {
+        compare(self, other) == 0
+    }
+
+    pub fn string(&self) -> String {
+        format!(
+            "Nano64{{value={}, timestamp={}, random={}}}",
+            self.value,
+            self.get_timestamp(),
+            self.get_random()
+        )
     }
 
     pub(crate) fn generate(

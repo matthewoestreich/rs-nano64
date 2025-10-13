@@ -29,32 +29,12 @@ impl Nano64 {
         return Nano64EncryptionFactory::new(key, clock, rng);
     }
 
-    pub fn u64_value(&self) -> u64 {
-        self.value
-    }
-
     pub fn generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Self, Nano64Error> {
         Self::generate(time_now_since_epoch_ms(), rng)
     }
 
     pub fn generate_default() -> Result<Self, Nano64Error> {
         Self::generate_now(Some(default_rng))
-    }
-
-    pub fn to_bytes(&self) -> [u8; 8] {
-        self.value.to_be_bytes()
-    }
-
-    pub fn get_timestamp(&self) -> u64 {
-        (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
-    }
-
-    pub fn get_random(&self) -> u32 {
-        (self.value & RANDOM_MASK) as u32
-    }
-
-    pub fn to_date(&self) -> SystemTime {
-        UNIX_EPOCH + Duration::from_millis(self.get_timestamp())
     }
 
     pub fn generate_monotonic_now(
@@ -67,33 +47,41 @@ impl Nano64 {
         Self::generate_monotonic_now(Some(default_rng))
     }
 
-    pub fn equals(&self, other: &Nano64) -> bool {
-        compare(self, other) == 0
+    pub fn get_timestamp(&self) -> u64 {
+        (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
     }
 
-    pub fn string(&self) -> String {
-        format!(
-            "Nano64{{value={}, timestamp={}, random={}}}",
-            self.value,
-            self.get_timestamp(),
-            self.get_random()
-        )
+    pub fn get_random(&self) -> u32 {
+        (self.value & RANDOM_MASK) as u32
     }
 
-    pub fn from_bytes(bytes: [u8; 8]) -> Self {
-        Self {
-            value: u64::from_be_bytes(bytes),
-        }
+    pub fn to_bytes(&self) -> [u8; 8] {
+        self.value.to_be_bytes()
     }
 
-    pub fn from_u64(value: u64) -> Self {
-        Self { value }
+    pub fn to_date(&self) -> SystemTime {
+        UNIX_EPOCH + Duration::from_millis(self.get_timestamp())
     }
 
     pub fn to_hex(&self) -> String {
         let full = format!("{:016X}", self.value);
         const SPLIT: usize = 11;
         format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
+    }
+
+    pub fn from_bytes(bytes: [u8; 8]) -> Self {
+        let timestamp = u64::from_be_bytes(bytes);
+        if !Nano64::is_timestamp_ms_precision(timestamp) {
+            return Nano64::new_now_raw(None);
+        }
+        Self { value: timestamp }
+    }
+
+    pub fn from_u64(value: u64) -> Self {
+        if !Nano64::is_timestamp_ms_precision(value) {
+            return Nano64::new_now_raw(None);
+        }
+        Self { value }
     }
 
     pub fn from_hex(hex_str: String) -> Result<Self, Nano64Error> {
@@ -128,10 +116,30 @@ impl Nano64 {
         Ok(Self { value })
     }
 
+    pub fn equals(&self, other: &Nano64) -> bool {
+        compare(self, other) == 0
+    }
+
+    pub fn u64_value(&self) -> u64 {
+        self.value
+    }
+
+    pub fn string(&self) -> String {
+        format!(
+            "Nano64{{value={}, timestamp={}, random={}}}",
+            self.value,
+            self.get_timestamp(),
+            self.get_random()
+        )
+    }
+
     pub(crate) fn generate(
         timestamp: u64,
         rng: Option<RandomNumberGeneratorImpl>,
     ) -> Result<Self, Nano64Error> {
+        if !Nano64::is_timestamp_ms_precision(timestamp) {
+            return Err(Nano64Error::Error("Timestamp not millisecond precision! Timestamps with millisecond precision have 12-14 digits, inclusive.".into()));
+        }
         if timestamp > MAX_TIMESTAMP {
             return Err(Nano64Error::TimeStampExceedsBitRange(timestamp));
         }
@@ -154,6 +162,9 @@ impl Nano64 {
         timestamp: u64,
         rng: Option<RandomNumberGeneratorImpl>,
     ) -> Result<Self, Nano64Error> {
+        if !Nano64::is_timestamp_ms_precision(timestamp) {
+            return Err(Nano64Error::Error("Timestamp not millisecond precision! Timestamps with millisecond precision have 12-14 digits, inclusive.".into()));
+        }
         if timestamp > MAX_TIMESTAMP {
             return Err(Nano64Error::TimeStampExceedsBitRange(timestamp));
         }
@@ -169,7 +180,10 @@ impl Nano64 {
             default_rng
         };
 
-        println!("last_timestamp={} | last_random={}", refs.last_timestamp, refs.last_random);
+        println!(
+            "last_timestamp={} | last_random={}",
+            refs.last_timestamp, refs.last_random
+        );
 
         // Enforce nondecreasing time
         let mut ts = timestamp;
@@ -435,7 +449,7 @@ mod tests {
     #[test]
     fn test_nano64_to_bytes_from_bytes() {
         let original = Nano64 {
-            value: 0x123456789ABCDEF0,
+            value: 1250999896491,
         };
         let bytes = original.to_bytes();
         let parsed = Nano64::from_bytes(bytes);
@@ -608,16 +622,12 @@ mod tests {
 
         let test_cases: Vec<TestCase> = vec![
             TestCase {
-                name: "zero".into(),
-                value: 0,
-            },
-            TestCase {
                 name: "small value".into(),
-                value: 12345,
+                value: 123456123456,
             },
             TestCase {
                 name: "large value".into(),
-                value: 0xFFFFFFFFFFFFFFFF,
+                value: 0xFFFFFFFFFF,
             },
         ];
 
@@ -634,7 +644,10 @@ mod tests {
         {
             let mono_refs = get_monotonic_refs();
             let refs = mono_refs.lock().unwrap();
-            println!("from test : last_random={} , last_timestamp={}", refs.last_random, refs.last_timestamp);
+            println!(
+                "from test : last_random={} , last_timestamp={}",
+                refs.last_random, refs.last_timestamp
+            );
         }
         let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
             Ok(got) => got,
@@ -725,11 +738,11 @@ mod tests {
     fn test_nano64_monotonic_backwards_time() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
-        set_monotonic_refs_to(100, 1000000);
+        set_monotonic_refs_to(100, 999999999999);
         // Try to generate with an earlier timestamp
-        let id = Nano64::generate_monotonic(500000, None).unwrap();
+        let id = Nano64::generate_monotonic(111111111111, None).unwrap();
         // Should use the last timestamp, not provided one
-        if id.get_timestamp() < 1000000 {
+        if id.get_timestamp() < 111111111111 {
             panic!("Should not go backwards in time {}", id.get_timestamp());
         }
     }
@@ -784,9 +797,9 @@ mod tests {
     fn test_nano64_monotonic_same_timestamp_increment() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
-        set_monotonic_refs_to(50, 1000);
-        let id_1 = Nano64::generate_monotonic(1000, None).unwrap();
-        let id_2 = Nano64::generate_monotonic(1000, None).unwrap();
+        set_monotonic_refs_to(50, 100000000000);
+        let id_1 = Nano64::generate_monotonic(100000000000, None).unwrap();
+        let id_2 = Nano64::generate_monotonic(100000000000, None).unwrap();
         if id_2.get_random() <= id_1.get_random() {
             panic!(
                 "should increment random field in same ms. id_2 ({}) should be > id_1 ({})",

@@ -158,16 +158,18 @@ impl Nano64 {
             return Err(Nano64Error::TimeStampExceedsBitRange(timestamp));
         }
 
+        let monotonic_refs = get_monotonic_refs();
+        let mut refs = monotonic_refs
+            .lock()
+            .map_err(|_| Nano64Error::Error("Error locking refs".into()))?;
+
         let rng = if let Some(_rng) = rng {
             _rng
         } else {
             default_rng
         };
 
-        let monotonic_refs = get_monotonic_refs();
-        let mut refs = monotonic_refs
-            .lock()
-            .map_err(|_| Nano64Error::Error("Error unlocking refs".into()))?;
+        println!("last_timestamp={} | last_random={}", refs.last_timestamp, refs.last_random);
 
         // Enforce nondecreasing time
         let mut ts = timestamp;
@@ -182,9 +184,9 @@ impl Nano64 {
             if random == 0 {
                 ts += 1;
                 if ts > MAX_TIMESTAMP {
-                    return Err(Nano64Error::Error(
-                        "timestamp overflow after incrementing for monotonic generation".into(),
-                    ));
+                    return Err(Nano64Error::Error(format!(
+                        "timestamp overflow after incrementing for monotonic generation : timestamp={ts} > MAX_TIMESTAMP={MAX_TIMESTAMP}"
+                    )));
                 }
                 refs.last_timestamp = ts;
                 refs.last_random = 0;
@@ -629,6 +631,11 @@ mod tests {
     fn test_nano64_monotonic_now() {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
+        {
+            let mono_refs = get_monotonic_refs();
+            let refs = mono_refs.lock().unwrap();
+            println!("from test : last_random={} , last_timestamp={}", refs.last_random, refs.last_timestamp);
+        }
         let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
             Ok(got) => got,
             Err(e) => panic!("[id_1] did not expect error {e}"),
@@ -637,7 +644,12 @@ mod tests {
             Ok(got) => got,
             Err(e) => panic!("[id_2] did not expect error {e}"),
         };
-        assert!(id_1.u64_value() < id_2.u64_value());
+        assert!(
+            id_1.u64_value() < id_2.u64_value(),
+            "id_1.u64_value() = {}, id_2.u64_value() = {}",
+            id_1.u64_value(),
+            id_2.u64_value()
+        );
     }
 
     #[test]

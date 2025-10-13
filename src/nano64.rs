@@ -255,12 +255,12 @@ mod tests {
     #[test]
     fn test_nano64_generate() {
         let timestamp: u64 = 1234567890123;
-        fn _rng(_bits: u32) -> Result<u32, Nano64Error> {
-            Ok(0x12345)
+        let expected_random = 0x12345;
+        fn rng(_bits: u32) -> Result<u32, Nano64Error> {
+            Ok(0x12345) // Same as expected_random!
         }
-        let id = Nano64::generate(timestamp, Some(_rng)).unwrap();
+        let id = Nano64::generate(timestamp, Some(rng)).unwrap();
         assert_eq!(id.get_timestamp(), timestamp);
-        let expected_random: u32 = 0x12345;
         assert_eq!(id.get_random(), expected_random);
     }
 

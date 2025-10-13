@@ -297,7 +297,10 @@ fn test_max_throughput(duration: Duration) -> (u64, u64) {
         with_commas(ids_per_ms.get(max_collision.0).unwrap())
     );
 
-    (*timestamp_with_most_ids.1, *timestamp_with_most_ids_collisions /* max_collision.1 */ )
+    (
+        *timestamp_with_most_ids.1,
+        *timestamp_with_most_ids_collisions, /* max_collision.1 */
+    )
 }
 
 fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_threads: usize) {

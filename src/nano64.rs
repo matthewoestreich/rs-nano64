@@ -202,14 +202,35 @@ impl Nano64 {
 #[cfg(test)]
 mod tests {
 
-    use std::time::UNIX_EPOCH;
+    use std::{
+        collections::HashSet,
+        sync::{Mutex, OnceLock},
+        thread,
+        time::UNIX_EPOCH,
+    };
 
     use crate::{
         Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare, default_rng,
-        monotonic_refs::{get_monotonic_refs, reset_monotonic_refs},
+        monotonic_refs::get_monotonic_refs,
         nano64::{MAX_TIMESTAMP, RANDOM_MASK},
         time_now_since_epoch_ms,
     };
+
+    // Rust tests run concurrently by default. Some tests reset or manipulate the global
+    // monotonic refs to produce predictable results. Without coordination, these tests
+    // can interfere with each other, causing failures that would not occur in normal usage.
+    // This lock ensures only one test at a time can access or modify the global monotonic refs.
+    static MONOTONIC_LOCK_FOR_TESTS: OnceLock<Mutex<()>> = OnceLock::new();
+    fn get_monotonic_lock_for_tests() -> &'static Mutex<()> {
+        MONOTONIC_LOCK_FOR_TESTS.get_or_init(|| Mutex::new(()))
+    }
+
+    pub(crate) fn reset_monotonic_refs() {
+        let refs = get_monotonic_refs();
+        let mut guard = refs.lock().unwrap();
+        guard.last_timestamp = 0;
+        guard.last_random = 0;
+    }
 
     fn set_monotonic_refs_to(last_random: u64, last_timestamp: u64) {
         let monotonic_refs = get_monotonic_refs();
@@ -561,20 +582,67 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_now() {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
         let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
             Ok(got) => got,
-            Err(e) => panic!("did not expect error {e}"),
+            Err(e) => panic!("[id_1] did not expect error {e}"),
         };
         let id_2 = match Nano64::generate_monotonic_now(None) {
             Ok(got) => got,
-            Err(e) => panic!("did not expect error {e}"),
+            Err(e) => panic!("[id_2] did not expect error {e}"),
         };
         assert!(id_1.u64_value() < id_2.u64_value());
     }
 
     #[test]
+    fn test_monotonic_race() {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
+
+        let num_ids_to_create = 100_000;
+        let num_threads = 10;
+        let ids_per_thread = num_ids_to_create / num_threads;
+
+        let mut handles = Vec::new();
+
+        for _ in 0..num_threads {
+            handles.push(thread::spawn(move || {
+                let mut local_ids = Vec::<Nano64>::new();
+                for _ in 0..ids_per_thread {
+                    local_ids.push(Nano64::generate_monotonic_now(None).unwrap())
+                }
+                local_ids
+            }));
+        }
+
+        let mut global_ids = Vec::<Nano64>::new();
+
+        for handle in handles {
+            let mut thread_ids = handle.join().unwrap();
+            global_ids.append(&mut thread_ids);
+        }
+
+        global_ids.sort_by_key(|id| id.u64_value());
+
+        for pair in global_ids.windows(2) {
+            assert!(
+                pair[0].u64_value() < pair[1].u64_value(),
+                "IDs not strictly increasing"
+            );
+        }
+
+        let unique_count = global_ids
+            .iter()
+            .map(|id| id.u64_value())
+            .collect::<HashSet<_>>()
+            .len();
+
+        assert_eq!(unique_count, global_ids.len(), "Duplicate IDs detected!");
+    }
+
+    #[test]
     fn test_nano64_monotonic_default() {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
         let id = match Nano64::generate_monotonic_default() {
             Ok(got) => got,
@@ -585,6 +653,7 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_overflow() {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
         // Set refs to maximums, simulate exhaustion.
         set_monotonic_refs_to(RANDOM_MASK, MAX_TIMESTAMP);
@@ -597,6 +666,7 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_backwards_time() {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
         set_monotonic_refs_to(100, 1000000);
         // Try to generate with an earlier timestamp
@@ -642,6 +712,7 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_failing_rng() {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
         set_monotonic_refs_to(0, 1000);
         fn rng(_bits: u32) -> Result<u32, Nano64Error> {
@@ -654,6 +725,7 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_same_timestamp_increment() {
+        let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         reset_monotonic_refs();
         set_monotonic_refs_to(50, 1000);
         let id_1 = Nano64::generate_monotonic(1000, None).unwrap();

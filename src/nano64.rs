@@ -277,7 +277,8 @@ mod tests {
 
     #[test]
     fn test_nano64_generate_monotonic() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             let timestamp: u64 = 1234567890123;
             fn _rng(_bits: u32) -> Result<u32, Nano64Error> {
                 Ok(0x12345)
@@ -289,7 +290,7 @@ mod tests {
             assert!(compare(&id_2, &id_1) >= 0);
             // both shoulld have same timestamp
             assert_eq!(id_1.get_timestamp(), id_2.get_timestamp());
-        });
+        }
     }
 
     #[test]

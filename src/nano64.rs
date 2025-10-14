@@ -627,7 +627,7 @@ mod tests {
                 handles.push(thread::spawn(move || {
                     let mut local_ids = Vec::<Nano64>::new();
                     for _ in 0..total_ids_to_create {
-                        local_ids.push(Nano64::generate_monotonic_now(None).unwrap());
+                        local_ids.push(Nano64::generate_monotonic_default().unwrap());
                     }
                     local_ids
                 }));

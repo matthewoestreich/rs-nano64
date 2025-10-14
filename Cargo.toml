@@ -1,6 +1,6 @@
 [package]
 name = "nano64"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 authors = ["Matt Oestreich <github.com/matthewoestreich>"]
 description = "64-bit Time-Sortable Identifiers for Rust"

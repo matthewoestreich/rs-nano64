@@ -3,11 +3,114 @@ use crate::{
     RandomNumberGeneratorImpl, TIMESTAMP_MASK, TIMESTAMP_SHIFT, compare, default_rng,
     monotonic_refs::*, time_now_since_epoch_ms,
 };
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    fmt, str,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 #[derive(Clone, Debug)]
 pub struct Nano64 {
     pub(crate) value: u64,
+}
+
+impl Default for Nano64 {
+    fn default() -> Self {
+        Self {
+            value: time_now_since_epoch_ms(),
+        }
+    }
+}
+
+impl From<Nano64> for String {
+    fn from(n64: Nano64) -> String {
+        n64.to_string()
+    }
+}
+
+impl From<Nano64> for u64 {
+    fn from(n64: Nano64) -> Self {
+        n64.value
+    }
+}
+
+impl From<u64> for Nano64 {
+    fn from(value: u64) -> Self {
+        Self { value }
+    }
+}
+
+impl From<[u8; 8]> for Nano64 {
+    fn from(bytes: [u8; 8]) -> Self {
+        Self {
+            value: u64::from_be_bytes(bytes),
+        }
+    }
+}
+
+// From hex string
+impl TryFrom<&'_ str> for Nano64 {
+    type Error = Nano64Error;
+
+    fn try_from(str: &'_ str) -> Result<Self, Self::Error> {
+        str.parse::<Nano64>()
+    }
+}
+
+impl TryFrom<String> for Nano64 {
+    type Error = Nano64Error;
+
+    fn try_from(str: String) -> Result<Self, Self::Error> {
+        str.parse::<Nano64>()
+    }
+}
+
+// From hex string
+impl str::FromStr for Nano64 {
+    type Err = Nano64Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let mut clean = value.replace("-", "");
+        if let Some(stripped) = clean
+            .strip_prefix("0x")
+            .or_else(|| clean.strip_prefix("0X"))
+        {
+            clean = stripped.to_string();
+        }
+
+        if clean.len() != 16 {
+            return Err(Nano64Error::Error(format!(
+                "hex must be 16 chars after removing dash, got {}",
+                clean.len()
+            )));
+        }
+
+        let bytes_vec = Hex::to_bytes(&clean)?;
+        if bytes_vec.len() != 8 {
+            return Err(Nano64Error::Error(format!(
+                "hex must decode to 8 bytes, got {}",
+                bytes_vec.len()
+            )));
+        }
+
+        let bytes: [u8; 8] = bytes_vec
+            .try_into()
+            .map_err(|_| Nano64Error::Error("hex must decode to exactly 8 bytes".into()))?;
+
+        let value = u64::from_be_bytes(bytes);
+        Ok(Self { value })
+    }
+}
+
+impl fmt::Display for Nano64 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Nano64{{value={}, timestamp={}, random={}}}",
+            self.value,
+            self.get_timestamp(),
+            self.get_random()
+        )
+    }
 }
 
 impl Nano64 {
@@ -41,48 +144,6 @@ impl Nano64 {
         return Nano64EncryptionFactory::new(key, clock, rng);
     }
 
-    pub fn from_bytes(bytes: [u8; 8]) -> Self {
-        Self {
-            value: u64::from_be_bytes(bytes),
-        }
-    }
-
-    pub fn from_u64(value: u64) -> Self {
-        Self { value }
-    }
-
-    pub fn from_hex(hex_str: String) -> Result<Self, Nano64Error> {
-        let mut clean = hex_str.replace("-", "");
-        if let Some(stripped) = clean
-            .strip_prefix("0x")
-            .or_else(|| clean.strip_prefix("0X"))
-        {
-            clean = stripped.to_string();
-        }
-
-        if clean.len() != 16 {
-            return Err(Nano64Error::Error(format!(
-                "hex must be 16 chars after removing dash, got {}",
-                clean.len()
-            )));
-        }
-
-        let bytes_vec = Hex::to_bytes(&clean)?;
-        if bytes_vec.len() != 8 {
-            return Err(Nano64Error::Error(format!(
-                "hex must decode to 8 bytes, got {}",
-                bytes_vec.len()
-            )));
-        }
-
-        let bytes: [u8; 8] = bytes_vec
-            .try_into()
-            .map_err(|_| Nano64Error::Error("hex must decode to exactly 8 bytes".into()))?;
-
-        let value = u64::from_be_bytes(bytes);
-        Ok(Self { value })
-    }
-
     pub fn get_timestamp(&self) -> u64 {
         (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
     }
@@ -111,15 +172,6 @@ impl Nano64 {
 
     pub fn equals(&self, other: &Nano64) -> bool {
         compare(self, other) == 0
-    }
-
-    pub fn string(&self) -> String {
-        format!(
-            "Nano64{{value={}, timestamp={}, random={}}}",
-            self.value,
-            self.get_timestamp(),
-            self.get_random()
-        )
     }
 
     pub(crate) fn generate(
@@ -370,7 +422,7 @@ mod tests {
         ];
 
         for tc in test_cases {
-            match Nano64::from_hex(tc.hex) {
+            match tc.hex.parse::<Nano64>() {
                 Ok(got) => {
                     if tc.want_err {
                         panic!(
@@ -396,7 +448,7 @@ mod tests {
     fn test_nano64_to_bytes_from_bytes() {
         let original = Nano64::new(0x123456789ABCDEF0);
         let bytes = original.to_bytes();
-        let parsed = Nano64::from_bytes(bytes);
+        let parsed = Nano64::from(bytes);
         assert_eq!(parsed.u64_value(), original.u64_value());
     }
 
@@ -417,6 +469,17 @@ mod tests {
         let id_3 = Nano64::new(100);
         assert!(!id_1.equals(&id_2));
         assert!(id_1.equals(&id_3));
+    }
+
+    #[test]
+    fn test_nano64_string_conversions() {
+        let s_slice = "199E4C62AD4-DAEFC";
+        let s_string = "199E4C62AD4-DAEFC".to_string();
+        let n_1 = s_slice.parse::<Nano64>().unwrap();
+        let n_2 = Nano64::try_from(s_slice).unwrap();
+        let n_3 = s_string.parse::<Nano64>().unwrap();
+        let n_4 = Nano64::try_from(s_string.clone()).unwrap();
+        assert!(n_1.equals(&n_2) && n_3.equals(&n_4) && n_1.equals(&n_3) && n_2.equals(&n_4));
     }
 
     #[test]
@@ -549,7 +612,7 @@ mod tests {
     #[test]
     fn test_nano64_string() {
         let id = Nano64::new(0x123456789ABCD);
-        let str = id.string();
+        let str = id.to_string();
         assert_ne!(str, "");
         assert!(str.contains("Nano64"));
     }
@@ -578,7 +641,7 @@ mod tests {
         ];
 
         for tc in test_cases {
-            let id = Nano64::from_u64(tc.value);
+            let id = Nano64::from(tc.value);
             assert_eq!(id.u64_value(), tc.value);
         }
     }
@@ -711,22 +774,20 @@ mod tests {
     #[test]
     fn test_nano64_from_bytes_error() {
         let bytes: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
-        let id = Nano64::from_bytes(bytes);
+        let id = Nano64::from(bytes);
         assert!(id.to_hex() != "");
     }
 
     #[test]
     fn test_nano64_from_hex_edge_case_too_short_after_prefix_removal() {
-        let hex_str = "0xABCD".to_string();
-        if let Ok(id) = Nano64::from_hex(hex_str) {
+        if let Ok(id) = "0xABCD".parse::<Nano64>() {
             panic!("Expected error - hex string too short after prefix removal - but got {id:?}");
         }
     }
 
     #[test]
     fn test_nano64_from_hex_edge_case_too_long() {
-        let hex_str = "0x00112233445566778899".to_string();
-        if let Ok(id) = Nano64::from_hex(hex_str) {
+        if let Ok(id) = "0x00112233445566778899".parse::<Nano64>() {
             panic!("Expected error - hex string too long - but got {id:?}");
         }
     }

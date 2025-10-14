@@ -146,17 +146,23 @@ Nano64::generate_monotonic_default() -> Result<Nano64, Nano64Error>
 
 - **Parse from 16-char hex string (with or without dash)**
 ```rust
-from_hex(hex_str: String) -> Result<Nano64, Nano64Error>
+Nano64::from_str(hex_str: &str) -> Result<Nano64, Nano64Error>;
+// parse &str or String
+&str.parse::<Nano64>() -> Result<Nano64, Nano64Error>;
+String.parse::<Nano64>() -> Result<Nano64, Nano64Error>;
+// try_from &str or String
+Nano64::try_from(str: &str) -> Result<Nano64, Nano64Error>;
+Nano64::try_from(str: String) -> Result<Nano64, Nano64Error>;
 ```
 
 - **Parse from 8 big-endian bytes**
 ```rust
-from_bytes(bytes: [u8; 8]) -> Nano64
+Nano64::from(bytes: [u8; 8]) -> Nano64
 ```
 
 - **Create from u64 value**
 ```rust
-from_u64(value: u64) -> Nano64
+Nano64::from(value: u64) -> Nano64
 ```
 
 - **Create from u64 value (alias)**

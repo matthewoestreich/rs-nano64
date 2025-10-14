@@ -1,5 +1,5 @@
 use crate::{
-    Clock, Hex, IV_LENGTH, Nano64, Nano64Error, PAYLOAD_LENGTH, RandomNumberGeneratorImpl,
+    ClockImpl, Hex, IV_LENGTH, Nano64, Nano64Error, PAYLOAD_LENGTH, RandomNumberGeneratorImpl,
     default_rng, time_now_since_epoch_ms,
 };
 use aes_gcm::{
@@ -27,14 +27,14 @@ impl Nano64Encrypted {
 
 pub struct Nano64EncryptionFactory {
     pub(crate) gcm: Aes256Gcm,
-    pub(crate) clock: Clock,
+    pub(crate) clock: ClockImpl,
     pub(crate) rng: RandomNumberGeneratorImpl,
 }
 
 impl Nano64EncryptionFactory {
     pub fn new(
         aes_key: &[u8],
-        clock: Option<Clock>,
+        clock: Option<ClockImpl>,
         rng: Option<RandomNumberGeneratorImpl>,
     ) -> Result<Self, Nano64Error> {
         if aes_key.len() != 32 {

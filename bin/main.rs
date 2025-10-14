@@ -24,8 +24,8 @@ fn main() {
     let concurrent_generation_with_coordinated_threads_count = 20_000_000;
     let concurrent_generation_with_coordinated_threads_num_threads = 100;
 
-    let concurrent_generation_as_fast_as_possible_count = 20_000_000;
-    let concurrent_generation_as_fast_as_possible_num_threads = 40;
+    let concurrent_generation_as_fast_as_possible_count = 5_000_000;
+    let concurrent_generation_as_fast_as_possible_num_threads = 10;
 
     let concurrent_generation_as_fast_as_possible_count_no_collision_tracking = 200_000_000;
     let concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking = 100;

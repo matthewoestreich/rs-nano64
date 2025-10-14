@@ -112,19 +112,57 @@ fn main() -> Result<(), Nano64Error> {
 
 ### Generation Functions
 
-- **`generate(timestamp: u64, rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>`** - Creates a new ID with specified timestamp and RNG
-- **`generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>`** - Creates an ID with current timestamp
-- **`generate_default() -> Result<Nano64, Nano64Error>`** - Creates an ID with current timestamp and default RNG
-- **`generate_monotonic(timestamp: u64, rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>`** - Creates monotonic ID (strictly increasing)
-- **`generate_monotonic_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>`** - Creates monotonic ID with current timestamp
-- **`generate_monotonic_default() -> Result<Nano64, Nano64Error>`** - Creates monotonic ID with current timestamp and default RNG
+- **Creates a new ID with specified timestamp and RNG**
+```rust
+Nano64::generate(timestamp: u64, rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
+```
+
+- **Creates an ID with current timestamp**
+```rust
+Nano64::generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
+```
+
+- **Creates an ID with current timestamp and default RNG**
+```rust
+Nano64::generate_default() -> Result<Nano64, Nano64Error>
+```
+
+- **Creates monotonic ID (strictly increasing)**
+```rust
+Nano64::generate_monotonic(timestamp: u64, rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
+```
+
+- **Creates monotonic ID with current timestamp**
+```rust
+Nano64::generate_monotonic_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
+```
+
+- **Creates monotonic ID with current timestamp and default RNG**
+```rust
+Nano64::generate_monotonic_default() -> Result<Nano64, Nano64Error>
+```
 
 ### Parsing Functions
 
-- **`from_hex(hex_str: String) -> Result<Nano64, Nano64Error>`** - Parse from 16-char hex string (with or without dash)
-- **`from_bytes(bytes: [u8; 8]) -> Nano64`** - Parse from 8 big-endian bytes
-- **`from_u64(value: u64) -> Nano64`** - Create from u64 value
-- **`new(value: u64) -> Nano64`** - Create from u64 value (alias)
+- **Parse from 16-char hex string (with or without dash)**
+```rust
+from_hex(hex_str: String) -> Result<Nano64, Nano64Error>
+```
+
+- **Parse from 8 big-endian bytes**
+```rust
+from_bytes(bytes: [u8; 8]) -> Nano64
+```
+
+- **Create from u64 value**
+```rust
+from_u64(value: u64) -> Nano64
+```
+
+- **Create from u64 value (alias)**
+```rust
+new(value: u64) -> Nano64
+```
 
 ### ID Methods
 
@@ -137,8 +175,15 @@ fn main() -> Result<(), Nano64Error> {
 
 ### Comparison Functions
 
-- **`nano64::compare(a: &Nano64, b: &Nano64) -> i64`** - Compare two IDs (-1, 0, 1)
-- **`<Nano64_Instance>.equals(other &Nano64) -> bool`** - Check equality
+- **Compare two IDs (-1, 0, 1)**
+```rust
+nano64::compare(a: &Nano64, b: &Nano64) -> i64
+```
+
+- **Check equality**
+```rust
+<Nano64>.equals(other &Nano64) -> bool
+```
 
 ### Database Support
 
@@ -191,7 +236,7 @@ cargo run --release
 The collision resistance test performs four comprehensive scenarios:
 
 1. **Single-threaded high-speed**: 5.3M IDs/sec with 0.29% collisions
-2. **Concurrent generation**: TBD
+2. **Concurrent generation**: ~80M IDs/sec with 0.1642% collisions across 10 threads
 3. **Sustained safe rate**: 145k IDs/sec over 10 seconds with <0.05% collisions
 4. **Maximum throughput burst**: 4.9M IDs/sec with 0.21% collisions
 

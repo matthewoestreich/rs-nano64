@@ -1,5 +1,5 @@
 use crate::{
-    Clock, Hex, MAX_TIMESTAMP, Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, RANDOM_MASK,
+    ClockImpl, Hex, MAX_TIMESTAMP, Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, RANDOM_MASK,
     RandomNumberGeneratorImpl, TIMESTAMP_MASK, TIMESTAMP_SHIFT, compare, default_rng,
     monotonic_refs::*, time_now_since_epoch_ms,
 };
@@ -35,7 +35,7 @@ impl Nano64 {
 
     pub fn encrypted_factory(
         key: &[u8],
-        clock: Option<Clock>,
+        clock: Option<ClockImpl>,
         rng: Option<RandomNumberGeneratorImpl>,
     ) -> Result<Nano64EncryptionFactory, Nano64Error> {
         return Nano64EncryptionFactory::new(key, clock, rng);

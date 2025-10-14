@@ -41,7 +41,7 @@ pub fn compare(a: &Nano64, b: &Nano64) -> i64 {
 // {bits} The number of random bits to generate (must be between 1 and 32).
 pub type RandomNumberGeneratorImpl = fn(bits: u32) -> Result<u32, Nano64Error>;
 
-pub type Clock = fn() -> u64;
+pub type ClockImpl = fn() -> u64;
 
 // Gets time now since epoch in ms
 fn time_now_since_epoch_ms() -> u64 {

@@ -48,23 +48,6 @@ impl From<[u8; 8]> for Nano64 {
 }
 
 // From hex string
-impl TryFrom<&'_ str> for Nano64 {
-    type Error = Nano64Error;
-
-    fn try_from(str: &'_ str) -> Result<Self, Self::Error> {
-        str.parse::<Nano64>()
-    }
-}
-
-impl TryFrom<String> for Nano64 {
-    type Error = Nano64Error;
-
-    fn try_from(str: String) -> Result<Self, Self::Error> {
-        str.parse::<Nano64>()
-    }
-}
-
-// From hex string
 impl str::FromStr for Nano64 {
     type Err = Nano64Error;
 
@@ -98,6 +81,24 @@ impl str::FromStr for Nano64 {
 
         let value = u64::from_be_bytes(bytes);
         Ok(Self { value })
+    }
+}
+
+// From hex string
+impl TryFrom<&'_ str> for Nano64 {
+    type Error = Nano64Error;
+
+    fn try_from(s: &'_ str) -> Result<Self, Self::Error> {
+        s.parse::<Nano64>()
+    }
+}
+
+// From hex stringg
+impl TryFrom<String> for Nano64 {
+    type Error = Nano64Error;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        s.parse::<Nano64>()
     }
 }
 
@@ -673,7 +674,7 @@ mod tests {
             let num_threads = rand::rng().random_range(min_threads..=max_threads);
             assert!(
                 num_threads >= min_threads && num_threads <= max_threads,
-                "Expected num_threads to be between {min_threads} and {max_threads} inclusive."
+                "Expected num_threads to be between {min_threads} and {max_threads} inclusive. Got {num_threads}."
             );
             let ids_per_thread = num_ids_to_create / num_threads;
             let remainder = num_ids_to_create % num_threads;

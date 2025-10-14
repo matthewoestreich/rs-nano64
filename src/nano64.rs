@@ -209,6 +209,8 @@ mod tests {
         time::UNIX_EPOCH,
     };
 
+    use rand::Rng;
+
     use crate::{
         Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare, default_rng,
         monotonic_refs::get_monotonic_refs,
@@ -582,7 +584,8 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_now() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             set_monotonic_refs_to(0, 0);
             let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
                 Ok(got) => got,
@@ -593,35 +596,37 @@ mod tests {
                 Err(e) => panic!("[id_2] did not expect error {e}"),
             };
             assert!(id_1.u64_value() < id_2.u64_value());
-        });
+        }
     }
 
     #[test]
     fn test_monotonic_race() {
-        acquire_monotonic_test_lock(race);
-
-        fn race() {
+        acquire_monotonic_test_lock(test);
+        fn test() {
+            let min_threads = 5;
+            let max_threads = 17;
             let num_ids_to_create = 100_000;
-            let num_threads = 15;
+            let num_threads = rand::rng().random_range(min_threads..=max_threads);
+            assert!(
+                num_threads >= min_threads && num_threads <= max_threads,
+                "Expected num_threads to be between {min_threads} and {max_threads} inclusive."
+            );
             let ids_per_thread = num_ids_to_create / num_threads;
             let remainder = num_ids_to_create % num_threads;
 
             let mut handles = Vec::new();
 
-            if remainder > 0 {
-                handles.push(thread::spawn(move || {
-                    let mut local_ids = Vec::<Nano64>::new();
-                    for _ in 0..remainder {
-                        local_ids.push(Nano64::generate_monotonic_now(None).unwrap());
-                    }
-                    local_ids
-                }));
-            }
+            for i in 0..num_threads {
+                // It's impossible for remainder to be > num_threads.
+                let total_ids_to_create = if i < remainder {
+                    ids_per_thread + 1
+                } else {
+                    ids_per_thread
+                };
 
-            for _ in 0..num_threads {
                 handles.push(thread::spawn(move || {
                     let mut local_ids = Vec::<Nano64>::new();
-                    for _ in 0..ids_per_thread {
+                    for _ in 0..total_ids_to_create {
                         local_ids.push(Nano64::generate_monotonic_now(None).unwrap());
                     }
                     local_ids
@@ -638,7 +643,7 @@ mod tests {
             assert_eq!(
                 num_ids_to_create,
                 global_ids.len(),
-                "Expected {num_ids_to_create} ids, got {}",
+                "Expected {num_ids_to_create} total ids (including duplicates), got {}",
                 global_ids.len()
             );
 
@@ -663,19 +668,21 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_default() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             set_monotonic_refs_to(0, 0);
             let id = match Nano64::generate_monotonic_default() {
                 Ok(got) => got,
                 Err(e) => panic!("unexpected error {e}"),
             };
             assert_ne!(id.u64_value(), 0);
-        });
+        }
     }
 
     #[test]
     fn test_nano64_monotonic_overflow() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             // Set refs to maximums, simulate exhaustion.
             set_monotonic_refs_to(RANDOM_MASK, MAX_TIMESTAMP);
             if let Ok(got) = Nano64::generate_monotonic(MAX_TIMESTAMP, None) {
@@ -683,12 +690,13 @@ mod tests {
                     "`generate_monotonic` called with max timestamp and exhausted random should error but got {got:?}"
                 );
             }
-        });
+        }
     }
 
     #[test]
     fn test_nano64_monotonic_backwards_time() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             set_monotonic_refs_to(100, 1000000);
             // Try to generate with an earlier timestamp
             let id = Nano64::generate_monotonic(500000, None).unwrap();
@@ -696,7 +704,7 @@ mod tests {
             if id.get_timestamp() < 1000000 {
                 panic!("Should not go backwards in time {}", id.get_timestamp());
             }
-        });
+        }
     }
 
     #[test]
@@ -734,7 +742,8 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_failing_rng() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             set_monotonic_refs_to(0, 1000);
             fn rng(_bits: u32) -> Result<u32, Nano64Error> {
                 Err(Nano64Error::Error("Simulated rng failure".into()))
@@ -742,12 +751,13 @@ mod tests {
             if let Ok(got) = Nano64::generate_monotonic(12345, Some(rng)) {
                 panic!("Expected error - rng failure - but got {got:?}");
             }
-        });
+        }
     }
 
     #[test]
     fn test_nano64_monotonic_same_timestamp_increment() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             set_monotonic_refs_to(50, 1000);
             let id_1 = Nano64::generate_monotonic(1000, None).unwrap();
             let id_2 = Nano64::generate_monotonic(1000, None).unwrap();
@@ -758,7 +768,7 @@ mod tests {
                     id_1.get_random()
                 );
             }
-        });
+        }
     }
 
     #[test]
@@ -774,7 +784,8 @@ mod tests {
 
     #[test]
     fn test_nano64_monotonic_generate_with_none_rng() {
-        acquire_monotonic_test_lock(|| {
+        acquire_monotonic_test_lock(test);
+        fn test() {
             let timestamp = 12345;
             let id = if let Ok(got) = Nano64::generate_monotonic(timestamp, None) {
                 got
@@ -782,7 +793,7 @@ mod tests {
                 panic!("Expected 'None' rng to use default_rng under the hood!");
             };
             assert_eq!(id.get_timestamp(), timestamp);
-        });
+        }
     }
 
     #[test]

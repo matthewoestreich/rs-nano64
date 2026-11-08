@@ -1,9 +1,9 @@
 use crate::{
-    ClockImpl, HEX_STRING_LENGTH_BYTES_DECODED, HEX_STRING_LENGTH_NO_DASH, Hex, MAX_TIMESTAMP,
-    Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, RANDOM_MASK, TIMESTAMP_MASK,
-    TIMESTAMP_SHIFT, compare, default_rng, monotonic_refs::*, prng::PRNG, time_now_since_epoch_ms,
+    HEX_STRING_LENGTH_BYTES_DECODED, HEX_STRING_LENGTH_NO_DASH, Hex, Nano64Error, RANDOM_BITS,
+    RANDOM_MASK, TIMESTAMP_MASK, compare,
 };
 use std::{
+    cmp::Ordering,
     fmt, str,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -14,12 +14,10 @@ pub struct Nano64 {
 }
 
 impl Nano64 {
-    pub fn new(value: u64) -> Self {
+    pub(crate) fn new(value: u64) -> Self {
         Self { value }
     }
-}
 
-impl Nano64 {
     /*
     pub fn encrypted_factory(
         key: &[u8],
@@ -57,72 +55,7 @@ impl Nano64 {
     }
 
     pub fn equals(&self, other: &Nano64) -> bool {
-        compare(self, other) == 0
-    }
-
-    /*
-    pub(crate) fn generate_monotonic(
-        timestamp: u64,
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Self, Nano64Error> {
-        if timestamp > MAX_TIMESTAMP {
-            return Err(Nano64Error::TimestampExceedsBitRange(timestamp));
-        }
-
-        let rng = if let Some(_rng) = rng {
-            _rng
-        } else {
-            default_rng
-        };
-
-        let monotonic_refs = get_monotonic_refs();
-        let mut refs = monotonic_refs
-            .lock()
-            .map_err(|_| Nano64Error::Custom("Error unlocking refs".into()))?;
-
-        // Enforce nondecreasing time
-        let mut ts = timestamp;
-        if ts < refs.last_timestamp {
-            ts = refs.last_timestamp;
-        }
-
-        let random: u64;
-        if ts == refs.last_timestamp {
-            // Same ms → increment
-            random = (refs.last_random + 1) & RANDOM_MASK;
-            if random == 0 {
-                ts += 1;
-                if ts > MAX_TIMESTAMP {
-                    return Err(Nano64Error::Custom(
-                        "timestamp overflow after incrementing for monotonic generation".into(),
-                    ));
-                }
-                refs.last_timestamp = ts;
-                refs.last_random = 0;
-                let ms = ts & TIMESTAMP_MASK;
-                let value = ms << TIMESTAMP_SHIFT;
-                return Ok(Self { value });
-            }
-        } else {
-            let random_value = rng(RANDOM_BITS as u32)?;
-            random = (random_value as u64) & RANDOM_MASK;
-        }
-
-        refs.last_timestamp = ts;
-        refs.last_random = random;
-        let ms = ts & TIMESTAMP_MASK;
-        let value = (ms << TIMESTAMP_SHIFT) | random;
-
-        Ok(Self { value })
-    }
-    */
-}
-
-impl Default for Nano64 {
-    fn default() -> Self {
-        Self {
-            value: time_now_since_epoch_ms(),
-        }
+        compare(self, other) == Ordering::Equal
     }
 }
 
@@ -221,20 +154,12 @@ impl fmt::Display for Nano64 {
 
 #[cfg(test)]
 mod tests {
-
+    use crate::{Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare, nano64::RANDOM_MASK};
     use std::{
         collections::HashSet,
         sync::{Mutex, OnceLock},
         thread,
         time::UNIX_EPOCH,
-    };
-
-    use rand::Rng;
-
-    use crate::{
-        Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare,
-        monotonic_refs::get_monotonic_refs,
-        nano64::{MAX_TIMESTAMP, RANDOM_MASK},
     };
 
     // Rust tests run concurrently by default. Some tests reset or manipulate the global

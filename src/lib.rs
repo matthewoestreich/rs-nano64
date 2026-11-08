@@ -6,12 +6,12 @@ mod errors;
 mod hex;
 mod monotonic_refs;
 mod nano64;
-mod nano64_encrypted;
+// mod nano64_encrypted;
 
 pub use errors::*;
 pub use hex::*;
 pub use nano64::*;
-pub use nano64_encrypted::*;
+// pub use nano64_encrypted::*;
 
 use monotonic_refs::MONOTONIC_REFS;
 use rand::RngExt as _;

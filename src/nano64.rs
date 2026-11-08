@@ -6,7 +6,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Nano64 {
     pub(crate) value: u64,
 }
@@ -127,7 +127,7 @@ impl fmt::Display for Nano64 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Nano64{{value={}, timestamp={}, random={}}}",
+            "Nano64{{ value={}, timestamp={}, random={} }}",
             self.value,
             self.timestamp(),
             self.random()
@@ -205,14 +205,42 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn test_nano64_generate_monotonic() {
         // Generate id's
         let id_1 = crate::generate_monotonic().expect("monotonic id");
         let id_2 = crate::generate_monotonic().expect("monotonic id");
         // Second id should be greater than first
-        assert!(crate::compare(&id_2, &id_1) == Ordering::Greater);
+        assert_eq!(crate::compare(&id_2, &id_1), Ordering::Greater);
         // Both shoulld have same timestamp
         assert_eq!(id_1.timestamp(), id_2.timestamp());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_exhaust_random_values_in_single_millisecond() {
+        let timestamp = UNIX_EPOCH + Duration::from_millis(1_000);
+        let mut rng = DeterministicRNG {};
+        let mut last_id = crate::generate_monotonic_with(timestamp, &mut rng).unwrap();
+
+        for i in 1..crate::RANDOM_MASK {
+            let id = crate::generate_monotonic_with(timestamp, &mut rng).unwrap();
+            assert_eq!(
+                id.timestamp(),
+                1000,
+                "iteration {i} (max iters={}) expected 1000, got {}",
+                crate::RANDOM_MASK,
+                id.timestamp()
+            );
+            assert!(id > last_id);
+            last_id = id;
+        }
+
+        // The next ID should advance the timestamp by 1 ms.
+        let next_id = crate::generate_monotonic_with(timestamp, &mut rng).unwrap();
+
+        assert_eq!(next_id.timestamp(), 1001);
+        assert_eq!(next_id.random(), 0);
     }
 
     #[test]

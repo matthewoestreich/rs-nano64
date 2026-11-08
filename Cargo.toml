@@ -16,6 +16,9 @@ rand = "0.10.3"
 aes = "0.8.4"
 aes-gcm = "0.10.3"
 
+[dev-dependencies]
+serial_test = "*"
+
 [lib]
 name = "nano64"
 path = "src/lib.rs"
@@ -23,4 +26,3 @@ path = "src/lib.rs"
 [[bin]]
 name = "nano64_collision_benchmark"
 path = "bin/main.rs"
-

@@ -154,6 +154,19 @@ mod tests {
     }
 
     #[test]
+    fn encryption_round_trip() {
+        let cipher = Nano64Cipher::new(DEFAULT_KEY);
+        let id = crate::generate().expect("id");
+        let id_clone = id.clone();
+        let enc_id = cipher.encrypt(id).expect("enc");
+        let dec_id = cipher.decrypt(&enc_id).expect("dec");
+        assert_eq!(
+            id_clone, dec_id,
+            "expected to decrypt back to same id! expected = {id_clone} got = {dec_id}"
+        );
+    }
+
+    #[test]
     fn gen_encrypted() {
         let cipher = Nano64Cipher::new(DEFAULT_KEY);
         let encrypted_id = cipher.generate_encrypted().unwrap();

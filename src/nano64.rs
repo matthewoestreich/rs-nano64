@@ -154,28 +154,34 @@ impl fmt::Display for Nano64 {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare, nano64::RANDOM_MASK};
+    use crate::{
+        MAX_TIMESTAMP, Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare,
+        nano64::RANDOM_MASK,
+    };
+    use rand::RngExt;
     use std::{
         collections::HashSet,
-        sync::{Mutex, OnceLock},
         thread,
-        time::UNIX_EPOCH,
+        time::{SystemTime, UNIX_EPOCH},
     };
 
-    // Rust tests run concurrently by default. Some tests reset or manipulate the global
-    // monotonic refs to produce predictable results. Without coordination, these tests
-    // can interfere with each other, causing failures that would not occur in normal usage.
-    // This lock ensures only one test at a time can access or modify the global monotonic refs.
-    static MONOTONIC_LOCK_FOR_TESTS: OnceLock<Mutex<()>> = OnceLock::new();
-    fn get_monotonic_lock_for_tests() -> &'static Mutex<()> {
-        MONOTONIC_LOCK_FOR_TESTS.get_or_init(|| Mutex::new(()))
-    }
+    struct RngTesting;
 
-    fn set_monotonic_refs_to(last_random: u64, last_timestamp: u64) {
-        let monotonic_refs = get_monotonic_refs();
-        let mut refs = monotonic_refs.lock().unwrap();
-        refs.last_random = last_random;
-        refs.last_timestamp = last_timestamp;
+    impl rand::TryRng for RngTesting {
+        type Error = std::convert::Infallible;
+
+        fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+            Ok(rand::random())
+        }
+
+        fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+            Ok(rand::random())
+        }
+
+        fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Self::Error> {
+            rand::rng().try_fill_bytes(dst);
+            Ok(())
+        }
     }
 
     #[test]
@@ -205,8 +211,12 @@ mod tests {
 
     #[test]
     fn test_nano64_generate_default() {
-        let id = Nano64::generate_default().unwrap();
-        let now = time_now_since_epoch_ms();
+        let id = crate::generate().unwrap(); // Nano64::generate_default().unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
         // check timestamp is recent (within last min)
         let timestamp = id.get_timestamp();
         assert!((timestamp > (now - 60000)) || (timestamp < (now + 1000)));

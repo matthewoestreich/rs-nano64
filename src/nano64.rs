@@ -1,6 +1,5 @@
-use hex::FromHex;
-
 use crate::{HEX_STRING_LENGTH, Nano64Error, RANDOM_BITS, RANDOM_MASK, TIMESTAMP_MASK, compare};
+use hex::FromHex;
 use std::{
     cmp::Ordering,
     fmt, str,
@@ -17,16 +16,6 @@ impl Nano64 {
         Self { value }
     }
 
-    /*
-    pub fn encrypted_factory(
-        key: &[u8],
-        clock: Option<ClockImpl>,
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Nano64EncryptionFactory, Nano64Error> {
-        Nano64EncryptionFactory::new(key, clock, rng)
-    }
-    */
-
     pub fn value(&self) -> u64 {
         self.value
     }
@@ -40,7 +29,8 @@ impl Nano64 {
         (self.value & RANDOM_MASK) as u32
     }
 
-    pub fn to_bytes(&self) -> [u8; 8] {
+    /// Get underlying vaue as be_bytes
+    pub fn to_be_bytes(&self) -> [u8; 8] {
         self.value.to_be_bytes()
     }
 
@@ -108,7 +98,7 @@ impl str::FromStr for Nano64 {
 
         let bytes: [u8; 8] = Vec::<u8>::from_hex(&clean)?
             .try_into()
-            .map_err(|bytes: Vec<u8>| Nano64Error::HexBytesInvalidLength(bytes.len()))?;
+            .map_err(|bytes: Vec<u8>| Nano64Error::IdInvalidBytesLength(bytes.len()))?;
 
         let value = u64::from_be_bytes(bytes);
         Ok(Self { value })
@@ -327,7 +317,7 @@ mod tests {
     #[test]
     fn test_nano64_to_bytes_from_bytes() {
         let original = crate::generate().unwrap();
-        let bytes = original.to_bytes();
+        let bytes = original.to_be_bytes();
         let parsed = Nano64::from(bytes);
         assert_eq!(parsed.value(), original.value());
     }

@@ -1,4 +1,4 @@
-use crate::{HEX_BYTES_LENGTH, HEX_STRING_LENGTH};
+use crate::{HEX_STRING_LENGTH, ID_BYTES_LENGTH};
 use std::{
     error,
     fmt::{Display, Formatter, Result},
@@ -8,16 +8,13 @@ use std::{
 #[derive(Debug)]
 pub enum Nano64Error {
     Custom(String),
-    TimeStampRangeError,
-    TimestampExceedsMax,
     TimestampExceedsBitRange(u128),
-    RNGOutOfBounds(u32),
-    HexStringNotEvenCharacters,
-    HexStringContainsNonHexChars,
     HexStringInvalidLength(usize),
-    HexBytesInvalidLength(usize),
+    IdInvalidBytesLength(usize),
     SystemTime(SystemTimeError),
     FromHex(hex::FromHexError),
+    EncryptionFailed,
+    DecryptionFailed,
 }
 
 impl Display for Nano64Error {
@@ -25,30 +22,25 @@ impl Display for Nano64Error {
         use Nano64Error::*;
         match self {
             Custom(s) => write!(f, "{s}"),
-            TimestampExceedsMax => write!(f, "Timestamp exceeds maximum"),
-            TimeStampRangeError => write!(f, "Start must be less than or equal to end!"),
             TimestampExceedsBitRange(got) => {
                 write!(f, "Timestamp exceeds the 44-bit range. Got={got}")
             }
-            RNGOutOfBounds(got) => write!(f, "RNG bits must be between 1 and 32. Got {got}"),
-            HexStringNotEvenCharacters => {
-                write!(f, "Hex string must contain an even amount of characters!")
-            }
-            HexStringContainsNonHexChars => write!(f, "Hex string contains non-hex characters!"),
             HexStringInvalidLength(got) => {
                 write!(
                     f,
                     "Hex string invalid length, expected {HEX_STRING_LENGTH} got {got}"
                 )
             }
-            HexBytesInvalidLength(got) => {
+            IdInvalidBytesLength(got) => {
                 write!(
                     f,
-                    "Hex bytes invalid length, expected {HEX_BYTES_LENGTH} got {got}"
+                    "Invalid bytes length, expected {ID_BYTES_LENGTH} got {got}"
                 )
             }
             SystemTime(error) => write!(f, "System time error {error}"),
             FromHex(error) => write!(f, "Error converting from hex strng {error}"),
+            EncryptionFailed => write!(f, "Encryption failed"),
+            DecryptionFailed => write!(f, "Decryption failed"),
         }
     }
 }

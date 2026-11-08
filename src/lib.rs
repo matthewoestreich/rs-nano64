@@ -2,13 +2,13 @@
 //! [Please see our README for more info!](https://github.com/matthewoestreich/rs-nano64)
 //!
 
+mod encryption;
 mod errors;
 mod nano64;
-// mod nano64_encrypted;
 
+pub use encryption::*;
 pub use errors::*;
 pub use nano64::*;
-// pub use nano64_encrypted::*;
 
 use rand::RngExt as _;
 use std::{
@@ -45,8 +45,8 @@ pub(crate) const RANDOM_BITS: u64 = 20;
 pub(crate) const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
 // Length of valid nano64 hex string WITHOUT dash
 pub(crate) const HEX_STRING_LENGTH: usize = 16;
-// Number of bytes that make up a decoded hex string
-pub(crate) const HEX_BYTES_LENGTH: usize = 8;
+// Number of bytes that make up an ID
+pub(crate) const ID_BYTES_LENGTH: usize = 8;
 
 /// Compare compares two IDs as unsigned 64-bit integers.
 /// Returns:
@@ -183,9 +183,4 @@ where
 
     let value = ((ts as u64) << RANDOM_BITS) | random;
     Ok(Nano64::new(value))
-}
-
-// Generates cryptographically secure random `u32` via `rand::rng().random()`
-fn generate_random_u32() -> u32 {
-    rand::rng().random()
 }

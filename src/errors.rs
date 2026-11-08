@@ -1,3 +1,4 @@
+use crate::{HEX_BYTES_LENGTH, HEX_STRING_LENGTH};
 use std::{
     error,
     fmt::{Display, Formatter, Result},
@@ -13,7 +14,10 @@ pub enum Nano64Error {
     RNGOutOfBounds(u32),
     HexStringNotEvenCharacters,
     HexStringContainsNonHexChars,
+    HexStringInvalidLength(usize),
+    HexBytesInvalidLength(usize),
     SystemTime(SystemTimeError),
+    FromHex(hex::FromHexError),
 }
 
 impl Display for Nano64Error {
@@ -31,8 +35,27 @@ impl Display for Nano64Error {
                 write!(f, "Hex string must contain an even amount of characters!")
             }
             HexStringContainsNonHexChars => write!(f, "Hex string contains non-hex characters!"),
+            HexStringInvalidLength(got) => {
+                write!(
+                    f,
+                    "Hex string invalid length, expected {HEX_STRING_LENGTH} got {got}"
+                )
+            }
+            HexBytesInvalidLength(got) => {
+                write!(
+                    f,
+                    "Hex bytes invalid length, expected {HEX_BYTES_LENGTH} got {got}"
+                )
+            }
             SystemTime(error) => write!(f, "System time error {error}"),
+            FromHex(error) => write!(f, "Error converting from hex strng {error}"),
         }
+    }
+}
+
+impl From<hex::FromHexError> for Nano64Error {
+    fn from(error: hex::FromHexError) -> Self {
+        Self::FromHex(error)
     }
 }
 
@@ -46,6 +69,7 @@ impl error::Error for Nano64Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::SystemTime(error) => Some(error),
+            Self::FromHex(error) => Some(error),
             _ => None,
         }
     }

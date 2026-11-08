@@ -1,7 +1,6 @@
-use crate::{
-    HEX_STRING_LENGTH_BYTES_DECODED, HEX_STRING_LENGTH_NO_DASH, Hex, Nano64Error, RANDOM_BITS,
-    RANDOM_MASK, TIMESTAMP_MASK, compare,
-};
+use hex::FromHex;
+
+use crate::{HEX_STRING_LENGTH, Nano64Error, RANDOM_BITS, RANDOM_MASK, TIMESTAMP_MASK, compare};
 use std::{
     cmp::Ordering,
     fmt, str,
@@ -32,6 +31,7 @@ impl Nano64 {
         (self.value >> RANDOM_BITS) & TIMESTAMP_MASK
     }
 
+    /// Get random part from id
     pub fn get_random(&self) -> u32 {
         (self.value & RANDOM_MASK) as u32
     }
@@ -40,9 +40,13 @@ impl Nano64 {
         self.value.to_be_bytes()
     }
 
+    /// Returns ID as hexadecimal string in the following format: TIMESTAMP-RANDOM
+    /// For example, given the following nano64 id : `199C01B6659-5861C`,
+    /// the TIMESTAMP is `199C01B6659` and the RANDOM is `5861C`.
     pub fn to_hex(&self) -> String {
         let full = format!("{:016X}", self.value);
         const SPLIT: usize = 11;
+        // Format = TIMESTAMP-RANDOM
         format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
     }
 
@@ -60,14 +64,14 @@ impl Nano64 {
 }
 
 impl From<Nano64> for String {
-    fn from(n64: Nano64) -> String {
-        n64.to_string()
+    fn from(nano64: Nano64) -> String {
+        nano64.to_string()
     }
 }
 
 impl From<Nano64> for u64 {
-    fn from(n64: Nano64) -> Self {
-        n64.value
+    fn from(nano64: Nano64) -> Self {
+        nano64.value
     }
 }
 
@@ -98,24 +102,13 @@ impl str::FromStr for Nano64 {
             clean = stripped.to_string();
         }
 
-        if clean.len() != HEX_STRING_LENGTH_NO_DASH {
-            return Err(Nano64Error::Custom(format!(
-                "hex must be {HEX_STRING_LENGTH_NO_DASH} chars after removing dash, got {}",
-                clean.len()
-            )));
+        if clean.len() != HEX_STRING_LENGTH {
+            return Err(Nano64Error::HexStringInvalidLength(clean.len()));
         }
 
-        let bytes_vec = Hex::to_bytes(&clean)?;
-        if bytes_vec.len() != HEX_STRING_LENGTH_BYTES_DECODED {
-            return Err(Nano64Error::Custom(format!(
-                "hex must decode to {HEX_STRING_LENGTH_BYTES_DECODED} bytes, got {}",
-                bytes_vec.len()
-            )));
-        }
-
-        let bytes: [u8; 8] = bytes_vec
+        let bytes: [u8; 8] = Vec::<u8>::from_hex(&clean)?
             .try_into()
-            .map_err(|_| Nano64Error::Custom("hex must decode to exactly 8 bytes".into()))?;
+            .map_err(|bytes: Vec<u8>| Nano64Error::HexBytesInvalidLength(bytes.len()))?;
 
         let value = u64::from_be_bytes(bytes);
         Ok(Self { value })
@@ -174,8 +167,7 @@ mod tests {
         fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
             Ok(1)
         }
-        fn try_fill_bytes(&mut self, dst: &mut [u8]) -> Result<(), Self::Error> {
-            rand::rng().try_fill_bytes(dst);
+        fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
             Ok(())
         }
     }
@@ -429,23 +421,22 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_nano64_monotonic_now() {
-        // TODO : pretty sure we already test ffor this above!
-        //
-        // let _guard = get_monotonic_lock_for_tests().lock().unwrap();
-        // set_monotonic_refs_to(0, 0);
-        // let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
-        //     Ok(got) => got,
-        //     Err(e) => panic!("[id_1] did not expect error {e}"),
-        // };
-        // let id_2 = match Nano64::generate_monotonic_now(None) {
-        //     Ok(got) => got,
-        //     Err(e) => panic!("[id_2] did not expect error {e}"),
-        // };
-        // assert!(id_1.u64_value() < id_2.u64_value());
-        assert!(true);
-    }
+    // #[test]
+    //fn test_nano64_monotonic_now() {
+    // TODO : pretty sure we already test ffor this above!
+    //
+    // let _guard = get_monotonic_lock_for_tests().lock().unwrap();
+    // set_monotonic_refs_to(0, 0);
+    // let id_1: Nano64 = match Nano64::generate_monotonic_now(None) {
+    //     Ok(got) => got,
+    //     Err(e) => panic!("[id_1] did not expect error {e}"),
+    // };
+    // let id_2 = match Nano64::generate_monotonic_now(None) {
+    //     Ok(got) => got,
+    //     Err(e) => panic!("[id_2] did not expect error {e}"),
+    // };
+    // assert!(id_1.u64_value() < id_2.u64_value());
+    //}
 
     #[test]
     fn test_monotonic_race() {
@@ -548,13 +539,13 @@ mod tests {
     #[test]
     fn test_nano64_from_hex_edge_case_too_short_after_prefix_removal() {
         let result = "0xABCD".parse::<Nano64>();
-        assert_matches!(result, Err(Nano64Error::Custom(_)));
+        assert_matches!(result, Err(Nano64Error::HexStringInvalidLength(_)));
     }
 
     #[test]
     fn test_nano64_from_hex_edge_case_too_long() {
         let result = "0x00112233445566778899".parse::<Nano64>();
-        assert_matches!(result, Err(Nano64Error::Custom(_)));
+        assert_matches!(result, Err(Nano64Error::HexStringInvalidLength(_)));
     }
 
     #[test]

@@ -3,13 +3,11 @@
 //!
 
 mod errors;
-mod hex;
 mod monotonic_refs;
 mod nano64;
 // mod nano64_encrypted;
 
 pub use errors::*;
-pub use hex::*;
 pub use nano64::*;
 // pub use nano64_encrypted::*;
 
@@ -33,9 +31,9 @@ pub(crate) const MAX_TIMESTAMP: u128 = TIMESTAMP_MASK as u128;
 // RANDOM_MASK is the mask for the 20-bit random field.
 pub(crate) const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
 // Length of valid nano64 hex string WITHOUT dash
-pub(crate) const HEX_STRING_LENGTH_NO_DASH: usize = 16;
+pub(crate) const HEX_STRING_LENGTH: usize = 16;
 // Number of bytes that make up a decoded hex string
-pub(crate) const HEX_STRING_LENGTH_BYTES_DECODED: usize = 8;
+pub(crate) const HEX_BYTES_LENGTH: usize = 8;
 
 /// Compare compares two IDs as unsigned 64-bit numbers.
 /// Returns:
@@ -45,7 +43,8 @@ pub(crate) const HEX_STRING_LENGTH_BYTES_DECODED: usize = 8;
 pub fn compare(a: &Nano64, b: &Nano64) -> Ordering {
     if a.value < b.value {
         return Ordering::Less;
-    } else if a.value > b.value {
+    }
+    if a.value > b.value {
         return Ordering::Greater;
     }
     Ordering::Equal

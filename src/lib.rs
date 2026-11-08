@@ -3,7 +3,6 @@
 //!
 
 mod errors;
-mod monotonic_refs;
 mod nano64;
 // mod nano64_encrypted;
 
@@ -11,12 +10,25 @@ pub use errors::*;
 pub use nano64::*;
 // pub use nano64_encrypted::*;
 
-use monotonic_refs::MONOTONIC_REFS;
 use rand::RngExt as _;
 use std::{
     cmp::Ordering,
+    sync::{LazyLock, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
+
+/// Global monotonic references
+pub(crate) struct MonotonicRefs {
+    pub(crate) last_timestamp: u128,
+    pub(crate) last_random: u64,
+}
+
+pub(crate) static MONOTONIC_REFS: LazyLock<Mutex<MonotonicRefs>> = LazyLock::new(|| {
+    Mutex::new(MonotonicRefs {
+        last_timestamp: 0,
+        last_random: 0,
+    })
+});
 
 pub(crate) const IV_LENGTH: usize = 12;
 pub(crate) const PAYLOAD_LENGTH: usize = IV_LENGTH + 8 + 16;
@@ -35,7 +47,7 @@ pub(crate) const HEX_STRING_LENGTH: usize = 16;
 // Number of bytes that make up a decoded hex string
 pub(crate) const HEX_BYTES_LENGTH: usize = 8;
 
-/// Compare compares two IDs as unsigned 64-bit numbers.
+/// Compare compares two IDs as unsigned 64-bit integers.
 /// Returns:
 ///   `Ordering::Less` (if a < b)
 ///   `Ordering::Equal` (if a == b)

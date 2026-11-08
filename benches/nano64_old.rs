@@ -2,13 +2,11 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{
         Arc,
-        atomic::{AtomicU64, AtomicUsize, Ordering},
+        atomic::{AtomicU64, Ordering},
     },
     thread,
     time::{Duration, Instant},
 };
-
-use nano64::*;
 
 fn main() {
     let high_speed_count = 5_000_000;
@@ -18,14 +16,14 @@ fn main() {
     let sustained_rate_count = 145_000;
     let sustained_rate_duration = Duration::from_millis(10_000);
 
-    let concurrent_generation_uncoordinated_threads_count = 20_000_000;
-    let concurrent_generation_uncoordinated_threads_num_threads = 100;
+    let concurrent_generation_static_workload_count = 20_000_000;
+    let concurrent_generation_static_workload_num_threads = 100;
 
     let concurrent_generation_with_coordinated_threads_count = 20_000_000;
     let concurrent_generation_with_coordinated_threads_num_threads = 100;
 
-    let concurrent_generation_as_fast_as_possible_count = 5_000_000;
-    let concurrent_generation_as_fast_as_possible_num_threads = 10;
+    let concurrent_generation_dynamic_workload_count = 5_000_000;
+    let concurrent_generation_dynamic_workload_num_threads = 10;
 
     let concurrent_generation_as_fast_as_possible_count_no_collision_tracking = 200_000_000;
     let concurrent_generation_as_fast_as_possible_num_threads_no_collision_tracking = 100;
@@ -39,22 +37,22 @@ fn main() {
 
     /********************* Concurrent Generation (uncoordinated threads) ***********************/
     println!(
-        "\nTesting concurrent generation : {} IDs over {concurrent_generation_uncoordinated_threads_num_threads} threads (uncoordinated threads)",
-        with_commas(concurrent_generation_uncoordinated_threads_count)
+        "\nTesting concurrent generation (static workload, each thread is told how many ids to generate) :\n\t{} IDs over {concurrent_generation_static_workload_num_threads} threads",
+        with_commas(concurrent_generation_static_workload_count)
     );
-    test_concurrent_generation_uncoordinated_threads(
-        concurrent_generation_uncoordinated_threads_count,
-        concurrent_generation_uncoordinated_threads_num_threads,
+    test_concurrent_generation_static_workload(
+        concurrent_generation_static_workload_count,
+        concurrent_generation_static_workload_num_threads,
     );
 
     /********************* Concurrent Generation (WITH coordinated threads) ***********************/
     println!(
-        "\nTesting concurrent generation : {} IDs over {concurrent_generation_with_coordinated_threads_num_threads} threads (WITH coordinated threads)",
+        "\nTesting concurrent generation : {} IDs over {concurrent_generation_with_coordinated_threads_num_threads} threads",
         with_commas(concurrent_generation_with_coordinated_threads_count)
     );
-    println!(
-        "  Note: Threads are coordinated, which means collisions rates should see a significant drop vs uncoordinated."
-    );
+    // println!(
+    //     "  Note: Threads are coordinated, which means collisions rates should see a significant drop vs uncoordinated."
+    // );
     test_concurrent_generation_with_coordinated_threads(
         concurrent_generation_with_coordinated_threads_count,
         concurrent_generation_with_coordinated_threads_num_threads,
@@ -62,12 +60,12 @@ fn main() {
 
     /********* Concurrent Generation (as fast as possible, track collisions) **************/
     println!(
-        "\nTesting concurrent generation : {} IDs over {concurrent_generation_as_fast_as_possible_num_threads} threads as fast as possible (track collisions)",
-        with_commas(concurrent_generation_as_fast_as_possible_count)
+        "\nTesting concurrent generation (dynamic workload, threads claim work per shared atomic counter) :\n\t{} IDs over {concurrent_generation_dynamic_workload_num_threads} threads as fast as possible (track collisions)",
+        with_commas(concurrent_generation_dynamic_workload_count)
     );
-    test_concurrent_generation_generate_ids_as_fast_as_possible(
-        concurrent_generation_as_fast_as_possible_count,
-        concurrent_generation_as_fast_as_possible_num_threads,
+    test_concurrent_generation_dynamic_workload(
+        concurrent_generation_dynamic_workload_count,
+        concurrent_generation_dynamic_workload_num_threads,
     );
 
     /********* Concurrent Generation (as fast as possible, NO collision tracking) **************/
@@ -141,8 +139,8 @@ fn test_high_speed_generation(count: u64) {
     let start = Instant::now();
 
     for _ in 0..count {
-        let id = Nano64::generate_default().unwrap();
-        let value = id.u64_value();
+        let id = nano64::generate().unwrap();
+        let value = id.value();
         if !seen.insert(value) {
             collisions += 1;
         }
@@ -177,9 +175,9 @@ fn test_sustained_rate(target_rate: u64, duration: Duration) {
     let interval = Duration::from_secs_f64(1.0 / target_rate as f64);
 
     while Instant::now() - start < duration {
-        let id = Nano64::generate_default().unwrap();
-        let value = id.u64_value();
-        let timestamp = id.get_timestamp();
+        let id = nano64::generate().unwrap();
+        let value = id.value();
+        let timestamp = id.timestamp();
 
         if !seen.insert(value) {
             collisions += 1;
@@ -234,9 +232,9 @@ fn test_max_throughput(duration: Duration) -> (u64, u64) {
         // Generate in a tight loop.
         // Try to keep calls to Instant.now() to a min (checking if `Instant::now() < start+duration` is expensive)
         for _ in 0..TIME_CHECK_INTERVAL {
-            let id = Nano64::generate_default().unwrap();
-            let value = id.u64_value();
-            let timestamp = id.get_timestamp();
+            let id = nano64::generate().unwrap();
+            let value = id.value();
+            let timestamp = id.timestamp();
             if !seen.insert(value) {
                 collisions += 1;
                 *collisions_per_timestamp.entry(timestamp).or_insert(0) += 1;
@@ -311,7 +309,8 @@ fn test_max_throughput(duration: Duration) -> (u64, u64) {
     )
 }
 
-fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_threads: usize) {
+// Each thread recieves a fixed number of ids to generate
+fn test_concurrent_generation_static_workload(total_count: u64, num_threads: usize) {
     let count_per_thread = total_count / num_threads as u64;
     let mut handles = Vec::with_capacity(num_threads);
 
@@ -323,8 +322,8 @@ fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_thread
             let mut local_collisions = 0u64;
 
             for _ in 0..count_per_thread {
-                let id = Nano64::generate_default().unwrap();
-                let value = id.u64_value();
+                let id = nano64::generate().unwrap();
+                let value = id.value();
                 if !seen.insert(value) {
                     local_collisions += 1;
                 }
@@ -356,9 +355,9 @@ fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_thread
     let total_generated = unique_count as u64 + global_collisions;
     let rate = total_generated as f64 / elapsed.as_secs_f64();
 
-    println!(
-        "  Note: Threads are not coordinated, which means collision rate should increase dramatically.\n  Note: More threads = more collisions."
-    );
+    // println!(
+    //     "  Note: Threads are not coordinated, which means collision rate should increase dramatically.\n  Note: More threads = more collisions."
+    // );
     println!("  Generated: {} IDs", with_commas(total_generated));
     println!("  Threads: {num_threads}");
     println!("  Duration: {}ms", with_commas(elapsed_ms));
@@ -372,63 +371,68 @@ fn test_concurrent_generation_uncoordinated_threads(total_count: u64, num_thread
 }
 
 fn test_concurrent_generation_with_coordinated_threads(total_count: u64, num_threads: usize) {
-    test_concurrent_generation_generate_ids_as_fast_as_possible(total_count, num_threads);
+    test_concurrent_generation_dynamic_workload(total_count, num_threads);
 }
 
-fn test_concurrent_generation_generate_ids_as_fast_as_possible(total_ids: u64, num_threads: usize) {
-    let counter = Arc::new(AtomicUsize::new(0));
-    let collisions = Arc::new(AtomicU64::new(0));
-    let mut handles = Vec::new();
+// Threads claim work dynamically using a shared atomic counter
+fn test_concurrent_generation_dynamic_workload(total_ids: u64, num_threads: usize) {
+    let counter = Arc::new(AtomicU64::new(0));
+    let mut handles = Vec::with_capacity(num_threads);
 
     let start = Instant::now();
 
     for _ in 0..num_threads {
         let counter = Arc::clone(&counter);
-        let collisions = Arc::clone(&collisions);
 
         handles.push(thread::spawn(move || {
             let mut local_seen = HashSet::new();
             let mut local_collisions = 0u64;
 
-            while counter.fetch_add(1, Ordering::Relaxed) < total_ids as usize {
-                let id = Nano64::generate_default().unwrap();
-                let value = id.u64_value();
+            while counter.fetch_add(1, Ordering::Relaxed) < total_ids {
+                let id = nano64::generate().unwrap();
+                let value = id.value();
 
                 if !local_seen.insert(value) {
                     local_collisions += 1;
                 }
             }
 
-            collisions.fetch_add(local_collisions, Ordering::Relaxed);
-            local_seen
+            (local_seen, local_collisions)
         }));
     }
 
-    // Merge local sets
     let mut global_seen = HashSet::new();
-    let mut total_generated = 0usize;
+    let mut total_collisions = 0u64;
 
     for handle in handles {
-        let local_set = handle.join().unwrap();
-        total_generated += local_set.len();
+        let (local_set, local_collisions) = handle.join().unwrap();
 
+        total_collisions += local_collisions;
+
+        // Count cross-thread collisions
         for value in local_set {
-            global_seen.insert(value);
+            if !global_seen.insert(value) {
+                total_collisions += 1;
+            }
         }
     }
 
     let elapsed = start.elapsed();
-    let rate = format!("{:.2}", total_ids as f64 / elapsed.as_secs_f64());
+    let unique_count = global_seen.len();
+    let total_generated = unique_count as u64 + total_collisions;
+    let rate = total_generated as f64 / elapsed.as_secs_f64();
+    let collision_rate = total_collisions as f64 / total_generated as f64 * 100.0;
 
     println!("  Threads: {num_threads}");
     println!("  Generated: {}", with_commas(total_generated));
+    println!("  Unique IDs: {}", with_commas(unique_count));
     println!("  Duration: {}ms", with_commas(elapsed.as_millis()));
     println!(
         "  Collisions: {} ({:.6}%)",
-        with_commas(collisions.load(Ordering::Relaxed)),
-        with_commas(collisions.load(Ordering::Relaxed) as f64 / total_ids as f64 * 100.0)
+        with_commas(total_collisions),
+        with_commas(format!("{collision_rate:.6}"))
     );
-    println!("  Rate: {} IDs/sec", with_commas(rate));
+    println!("  Rate: {} IDs/sec", with_commas(format!("{rate:.2}")));
 }
 
 fn test_concurrent_generation_generate_ids_as_fast_as_possible_without_counting_collisions(
@@ -443,7 +447,7 @@ fn test_concurrent_generation_generate_ids_as_fast_as_possible_without_counting_
         handles.push(thread::spawn(move || {
             let mut local_count = 0u64;
             for _ in 0..work_per_thread {
-                let _id = Nano64::generate_default().unwrap();
+                let _id = nano64::generate().unwrap();
                 local_count += 1;
             }
             local_count
@@ -459,9 +463,9 @@ fn test_concurrent_generation_generate_ids_as_fast_as_possible_without_counting_
     let elapsed_ms = format!("{:.3?}", elapsed.as_millis());
     let rate = format!("{:.2}", total_generated as f64 / elapsed.as_secs_f64());
 
-    println!(
-        "  Notes: each thread stores it's own count, which is merged once all threads have completed."
-    );
+    // println!(
+    //     "  Notes: each thread stores it's own count, which is merged once all threads have completed."
+    // );
     println!("  Threads: {num_threads}");
     println!("  Generated: {}", with_commas(total_generated));
     println!("  Duration: {}ms", with_commas(elapsed_ms));

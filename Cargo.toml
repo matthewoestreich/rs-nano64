@@ -20,6 +20,10 @@ aes-gcm = "0.10.3"
 name = "nano64"
 path = "src/lib.rs"
 
-[[bin]]
-name = "nano64_collision_benchmark"
-path = "bin/main.rs"
+[[bench]]
+name = "nano64_old"
+harness = false
+
+[[bench]]
+name = "nano64"
+harness = false

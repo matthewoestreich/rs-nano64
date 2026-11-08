@@ -221,7 +221,7 @@ Exports the encrypted payload as bytes or a hexadecimal string.
 Run the collision resistance demonstration:
 
 ```bash
-cargo run --release
+cargo bench --bench nano64
 ```
 
 **Benchmark Results:**

@@ -27,12 +27,16 @@ impl Nano64 {
     }
     */
 
-    pub fn get_timestamp(&self) -> u64 {
+    pub fn value(&self) -> u64 {
+        self.value
+    }
+
+    pub fn timestamp(&self) -> u64 {
         (self.value >> RANDOM_BITS) & TIMESTAMP_MASK
     }
 
     /// Get random part from id
-    pub fn get_random(&self) -> u32 {
+    pub fn random(&self) -> u32 {
         (self.value & RANDOM_MASK) as u32
     }
 
@@ -43,19 +47,15 @@ impl Nano64 {
     /// Returns ID as hexadecimal string in the following format: TIMESTAMP-RANDOM
     /// For example, given the following nano64 id : `199C01B6659-5861C`,
     /// the TIMESTAMP is `199C01B6659` and the RANDOM is `5861C`.
-    pub fn to_hex(&self) -> String {
+    pub fn hex(&self) -> String {
         let full = format!("{:016X}", self.value);
         const SPLIT: usize = 11;
         // Format = TIMESTAMP-RANDOM
         format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
     }
 
-    pub fn to_date(&self) -> SystemTime {
-        UNIX_EPOCH + Duration::from_millis(self.get_timestamp())
-    }
-
-    pub fn u64_value(&self) -> u64 {
-        self.value
+    pub fn date(&self) -> SystemTime {
+        UNIX_EPOCH + Duration::from_millis(self.timestamp())
     }
 
     pub fn equals(&self, other: &Nano64) -> bool {
@@ -139,8 +139,8 @@ impl fmt::Display for Nano64 {
             f,
             "Nano64{{value={}, timestamp={}, random={}}}",
             self.value,
-            self.get_timestamp(),
-            self.get_random()
+            self.timestamp(),
+            self.random()
         )
     }
 }
@@ -187,16 +187,16 @@ mod tests {
         let id_zero = Nano64::new(_zero);
         let id_max = Nano64::new(_max);
         let id_random = Nano64::new(_random);
-        assert_eq!(id_zero.u64_value(), _zero);
-        assert_eq!(id_max.u64_value(), _max);
-        assert_eq!(id_random.u64_value(), _random);
+        assert_eq!(id_zero.value(), _zero);
+        assert_eq!(id_max.value(), _max);
+        assert_eq!(id_random.value(), _random);
     }
 
     #[test]
     fn test_nano64_generate() {
         let id = crate::generate().unwrap();
         let timestamp = get_timestamp_now();
-        let id_timestamp = id.get_timestamp();
+        let id_timestamp = id.timestamp();
         let abs_timestamp_diff = ((timestamp as i64) - (id_timestamp as i64)).unsigned_abs();
         let expected_diff_max = 5u64;
         // Test that the timestamp from the id is within 5ms of timestamp of "now"
@@ -222,7 +222,7 @@ mod tests {
         // Second id should be greater than first
         assert!(crate::compare(&id_2, &id_1) == Ordering::Greater);
         // Both shoulld have same timestamp
-        assert_eq!(id_1.get_timestamp(), id_2.get_timestamp());
+        assert_eq!(id_1.timestamp(), id_2.timestamp());
     }
 
     #[test]
@@ -236,9 +236,9 @@ mod tests {
         let id_zero = Nano64::new(_zero);
         let id_max = Nano64::new(_max);
         let id_example = Nano64::new(_example);
-        assert_eq!(id_zero.to_hex(), _zero_expect);
-        assert_eq!(id_max.to_hex(), _max_expect);
-        assert_eq!(id_example.to_hex(), _example_expect);
+        assert_eq!(id_zero.hex(), _zero_expect);
+        assert_eq!(id_max.hex(), _max_expect);
+        assert_eq!(id_example.hex(), _example_expect);
     }
 
     #[test]
@@ -310,7 +310,7 @@ mod tests {
                             test_case.name, test_case.want_err
                         );
                     }
-                    assert_eq!(got.u64_value(), test_case.want);
+                    assert_eq!(got.value(), test_case.want);
                 }
                 Err(e) => {
                     if !test_case.want_err {
@@ -329,7 +329,7 @@ mod tests {
         let original = crate::generate().unwrap();
         let bytes = original.to_bytes();
         let parsed = Nano64::from(bytes);
-        assert_eq!(parsed.u64_value(), original.u64_value());
+        assert_eq!(parsed.value(), original.value());
     }
 
     #[test]
@@ -379,7 +379,7 @@ mod tests {
         // Need to compare using millisecond precision!
         // Comparing `timestamp` and `id.to_date()` directly is not apples to apples since
         // `timestamp` will have nanosecond precision where id.to_date() will have millisecond precision!
-        let id_date_ms = id.to_date().duration_since(UNIX_EPOCH).unwrap().as_millis();
+        let id_date_ms = id.date().duration_since(UNIX_EPOCH).unwrap().as_millis();
         let timestamp_ms = timestamp.duration_since(UNIX_EPOCH).unwrap().as_millis();
         assert_eq!(id_date_ms, timestamp_ms);
     }
@@ -417,7 +417,7 @@ mod tests {
 
         for tc in test_cases {
             let id = Nano64::from(tc.value);
-            assert_eq!(id.u64_value(), tc.value);
+            assert_eq!(id.value(), tc.value);
         }
     }
 
@@ -435,7 +435,7 @@ mod tests {
     //     Ok(got) => got,
     //     Err(e) => panic!("[id_2] did not expect error {e}"),
     // };
-    // assert!(id_1.u64_value() < id_2.u64_value());
+    // assert!(id_1.value() < id_2.value());
     //}
 
     #[test]
@@ -484,18 +484,18 @@ mod tests {
             global_ids.len()
         );
 
-        global_ids.sort_by_key(|id| id.u64_value());
+        global_ids.sort_by_key(|id| id.value());
 
         for pair in global_ids.windows(2) {
             assert!(
-                pair[0].u64_value() < pair[1].u64_value(),
+                pair[0].value() < pair[1].value(),
                 "IDs not strictly increasing"
             );
         }
 
         let unique_count = global_ids
             .iter()
-            .map(|id| id.u64_value())
+            .map(|id| id.value())
             .collect::<HashSet<_>>()
             .len();
 
@@ -526,14 +526,14 @@ mod tests {
         let in_the_past = SystemTime::now().sub(Duration::from_secs(10));
         let id = crate::generate_monotonic_at(in_the_past).unwrap();
 
-        assert!(id.get_timestamp() >= 1000000);
+        assert!(id.timestamp() >= 1000000);
     }
 
     #[test]
     fn test_nano64_from_bytes_error() {
         let bytes: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
         let id = Nano64::from(bytes);
-        assert!(id.to_hex() != "");
+        assert!(id.hex() != "");
     }
 
     #[test]
@@ -556,14 +556,14 @@ mod tests {
         assert!(
             crate::compare(&id_2, &id_1) == Ordering::Greater,
             "should increment random field in same ms. id_2 ({}) should be > id_1 ({})",
-            id_2.get_random(),
-            id_1.get_random()
+            id_2.random(),
+            id_1.random()
         );
         assert!(
-            id_2.get_random() > id_1.get_random(),
+            id_2.random() > id_1.random(),
             "should increment random field in same ms. id_2 ({}) should be > id_1 ({})",
-            id_2.get_random(),
-            id_1.get_random()
+            id_2.random(),
+            id_1.random()
         );
     }
 
@@ -601,7 +601,7 @@ mod tests {
             Ok(got) => got,
             Err(e) => panic!("unexpected error {e}"),
         };
-        assert_ne!(id.u64_value(), 0);
+        assert_ne!(id.value(), 0);
     }
     */
 

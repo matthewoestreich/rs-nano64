@@ -16,9 +16,6 @@ rand = "0.10.3"
 aes = "0.8.4"
 aes-gcm = "0.10.3"
 
-[dev-dependencies]
-serial_test = "*"
-
 [lib]
 name = "nano64"
 path = "src/lib.rs"

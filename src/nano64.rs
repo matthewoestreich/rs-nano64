@@ -183,6 +183,7 @@ mod tests {
     }
 
     #[test]
+
     fn test_nano64_generate() {
         let id = crate::generate().unwrap();
         let timestamp = get_timestamp_now();
@@ -205,8 +206,13 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
     fn test_nano64_generate_monotonic() {
+        {
+            let mut refs = crate::MONOTONIC_REFS.lock().unwrap();
+            refs.last_timestamp = 0;
+            refs.last_random = 0;
+        }
+
         // Generate id's
         let id_1 = crate::generate_monotonic().expect("monotonic id");
         let id_2 = crate::generate_monotonic().expect("monotonic id");
@@ -217,7 +223,6 @@ mod tests {
     }
 
     #[test]
-    #[serial_test::serial]
     fn test_exhaust_random_values_in_single_millisecond() {
         let timestamp = UNIX_EPOCH + Duration::from_millis(1_000);
         let mut rng = DeterministicRNG {};

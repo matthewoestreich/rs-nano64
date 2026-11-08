@@ -82,9 +82,9 @@ impl From<u64> for Nano64 {
 }
 
 impl From<[u8; 8]> for Nano64 {
-    fn from(bytes: [u8; 8]) -> Self {
+    fn from(be_bytes: [u8; 8]) -> Self {
         Self {
-            value: u64::from_be_bytes(bytes),
+            value: u64::from_be_bytes(be_bytes),
         }
     }
 }

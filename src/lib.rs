@@ -198,17 +198,87 @@ where
     generate_with_timestamp_and_rng(timestamp, rng)
 }
 
-/// Generate a new monotonic ID using current timestamp and default RNG.
+/// Generates a strictly increasing ID using the current timestamp and default RNG.
+///
+/// Monotonic state is shared globally across all calls. If multiple IDs are
+/// generated within the same millisecond, the random field is incremented
+/// to ensure each ID is greater than the previous one. If the random field
+/// is exhausted, the timestamp is advanced by one millisecond.
+///
+/// # Examples
+///
+/// ```rust
+/// use nano64;
+///
+/// let first = nano64::generate_monotonic().unwrap();
+/// let second = nano64::generate_monotonic().unwrap();
+///
+/// assert!(nano64::compare(&first, &second).is_lt());
+/// ```
 pub fn generate_monotonic() -> Result<Nano64, Nano64Error> {
     generate_monotonic_with_timestamp_and_rng(SystemTime::now(), &mut rand::rng())
 }
 
-/// Generate a new monotonic ID using your own timestamp and default RNG.
+/// Generates a strictly increasing ID using the provided timestamp and default RNG.
+///
+/// If the provided timestamp is earlier than the last generated timestamp,
+/// the generator uses the last timestamp to preserve monotonicity.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::time::{Duration, SystemTime};
+/// use nano64;
+///
+/// let timestamp = SystemTime::now() + Duration::from_secs(1);
+///
+/// let first = nano64::generate_monotonic_at(timestamp).unwrap();
+/// let second = nano64::generate_monotonic_at(timestamp).unwrap();
+///
+/// assert!(nano64::compare(&first, &second).is_lt());
+/// ```
 pub fn generate_monotonic_at(timestamp: SystemTime) -> Result<Nano64, Nano64Error> {
     generate_monotonic_with_timestamp_and_rng(timestamp, &mut rand::rng())
 }
 
-/// Generate a new monotonic ID using the current timestamp and your own RNG.
+/// Generates a strictly increasing ID using the current timestamp and a custom RNG.
+///
+/// The custom RNG is used when generating a new random field. When multiple
+/// IDs are generated within the same millisecond, the random field is
+/// incremented instead of generating another random value.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::convert::Infallible;
+/// use nano64;
+/// use rand;
+///
+/// struct AlwaysOneRNG;
+///
+/// impl rand::TryRng for AlwaysOneRNG {
+///     type Error = Infallible;
+///
+///     fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
+///         Ok(())
+///     }
+/// }
+///
+/// let mut rng = AlwaysOneRNG;
+///
+/// let first = nano64::generate_monotonic_with_rng(&mut rng).unwrap();
+/// let second = nano64::generate_monotonic_with_rng(&mut rng).unwrap();
+///
+/// assert!(nano64::compare(&first, &second).is_lt());
+/// ```
 pub fn generate_monotonic_with_rng<RNG>(rng: &mut RNG) -> Result<Nano64, Nano64Error>
 where
     RNG: rand::Rng,
@@ -216,7 +286,46 @@ where
     generate_monotonic_with_timestamp_and_rng(SystemTime::now(), rng)
 }
 
-/// Generate a new monotonic ID using your own timestamp and RNG.
+/// Generates a strictly increasing ID using the provided timestamp and custom RNG.
+///
+/// If the provided timestamp is earlier than the last generated timestamp,
+/// the generator uses the last timestamp to preserve monotonicity. The custom
+/// RNG is used when a new random field needs to be generated.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::convert::Infallible;
+/// use std::time::{Duration, SystemTime};
+/// use nano64;
+/// use rand;
+///
+/// struct AlwaysOneRNG;
+///
+/// impl rand::TryRng for AlwaysOneRNG {
+///     type Error = Infallible;
+///
+///     fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
+///         Ok(())
+///     }
+/// }
+///
+/// let timestamp = SystemTime::now() + Duration::from_secs(1);
+/// let mut rng = AlwaysOneRNG;
+///
+/// let first = nano64::generate_monotonic_with(timestamp, &mut rng).unwrap();
+/// let second = nano64::generate_monotonic_with(timestamp, &mut rng).unwrap();
+///
+/// assert!(nano64::compare(&first, &second).is_lt());
+/// ```
 pub fn generate_monotonic_with<RNG>(
     timestamp: SystemTime,
     rng: &mut RNG,

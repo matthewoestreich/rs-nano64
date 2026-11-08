@@ -6,6 +6,7 @@ use aes_gcm::{
 use rand::Rng;
 use std::time::SystemTime;
 
+/// Provides methods for generating, encrypting, and decrypting Nano64 IDs.
 pub struct Nano64Cipher {
     cipher: Aes256Gcm,
 }
@@ -17,6 +18,7 @@ impl Nano64Cipher {
         }
     }
 
+    /// Encrypt an existing Nano64 ID.
     pub fn encrypt(&self, id: Nano64) -> Result<EncryptedNano64, Nano64Error> {
         let iv = Self::generate_iv();
         let nonce = Nonce::from_slice(&iv);
@@ -30,9 +32,10 @@ impl Nano64Cipher {
         payload[..IV_LENGTH].copy_from_slice(&iv);
         payload[IV_LENGTH..].copy_from_slice(&ciphertext);
 
-        Ok(EncryptedNano64 { payload })
+        Ok(EncryptedNano64::from_bytes(payload))
     }
 
+    /// Decrypts an encrypted Nano64 ID and verifies its authenticity.
     pub fn decrypt(&self, encrypted: &EncryptedNano64) -> Result<Nano64, Nano64Error> {
         let bytes = encrypted.to_bytes();
         let iv = &bytes[..IV_LENGTH];
@@ -106,17 +109,21 @@ impl Nano64Cipher {
     }
 }
 
+/// Represents an encrypted Nano64 ID.
+///
+/// Contains a 12-byte nonce, 8-byte ciphertext, and 16-byte authentication tag.
 #[derive(Debug)]
 pub struct EncryptedNano64 {
     payload: [u8; PAYLOAD_LENGTH],
 }
 
+#[allow(dead_code)]
 impl EncryptedNano64 {
-    pub fn from_bytes(bytes: [u8; PAYLOAD_LENGTH]) -> Self {
+    pub(crate) fn from_bytes(bytes: [u8; PAYLOAD_LENGTH]) -> Self {
         Self { payload: bytes }
     }
 
-    pub fn from_hex(hex: &str) -> Result<Self, Nano64Error> {
+    pub(crate) fn from_hex(hex: &str) -> Result<Self, Nano64Error> {
         let bytes: [u8; PAYLOAD_LENGTH] = hex::decode(hex)?
             .try_into()
             .map_err(|bytes: Vec<u8>| Nano64Error::IdInvalidBytesLength(bytes.len()))?;
@@ -124,10 +131,12 @@ impl EncryptedNano64 {
         Ok(Self::from_bytes(bytes))
     }
 
+    /// Get the encrypted payload as raw bytes
     pub fn to_bytes(&self) -> &[u8; PAYLOAD_LENGTH] {
         &self.payload
     }
 
+    /// Get the 72-char encrypted payload as a hexadecimal string
     pub fn to_hex(&self) -> String {
         hex::encode(self.payload)
     }
@@ -191,8 +200,12 @@ mod tests {
         // Generate and encrypt using default RNG and current timestamp
         let encrypted_now = cipher.generate_encrypted().expect("id");
 
-        println!("Payload bytes: = {encrypted_now:?}");
-        // Payload bytes: = EncryptedNano64 { payload: [26, 38, 236, ...] }
+        println!("encrypted_now = {encrypted_now:?}");
+        // encrypted_now = EncryptedNano64 { payload: [26, 38, 236, ...] }
+
+        let bytes_payload = encrypted_now.to_bytes();
+        println!("Payload bytes = {bytes_payload:?}");
+        // Payload bytes = [26, 38, 236, ...]
 
         let hex_payload = encrypted_now.to_hex().to_ascii_uppercase();
         println!("72-char hex payload = {hex_payload}");
@@ -206,7 +219,6 @@ mod tests {
 
         // Encrypt existing ID
         let existing = crate::generate().expect("id");
-        let encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
-        println!("Encrypted Existing = {encrypted_existing:?}");
+        let _encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
     }
 }

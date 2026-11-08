@@ -74,8 +74,12 @@ let cipher = Nano64Cipher::new(key);
 // Generate and encrypt using default RNG and current timestamp
 let encrypted_now = cipher.generate_encrypted().expect("id");
 
-println!("Payload bytes: = {encrypted_now:?}");
-// Payload bytes: = EncryptedNano64 { payload: [26, 38, 236, ...] }
+println!("encrypted_now = {encrypted_now:?}");
+// encrypted_now = EncryptedNano64 { payload: [26, 38, 236, ...] }
+
+let bytes_payload = encrypted_now.to_bytes();
+println!("Payload bytes = {bytes_payload:?}");
+// Payload bytes = [26, 38, 236, ...]
 
 let hex_payload = encrypted_now.to_hex().to_ascii_uppercase();
 println!("72-char hex payload = {hex_payload}");
@@ -130,6 +134,8 @@ Generates a new ID using the current timestamp and a custom RNG.
 Generates a new ID using a provided timestamp and custom RNG.
 
 ### Monotonic ID Generation
+
+**Monotonic ID generation is thread-safe!**
 
 `nano64::generate_monotonic()`
 

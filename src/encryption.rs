@@ -1,8 +1,9 @@
 use crate::{ID_BYTES_LENGTH, IV_LENGTH, Nano64, Nano64Error, PAYLOAD_LENGTH};
 use aes_gcm::{
     Aes256Gcm, Key, Nonce,
-    aead::{Aead, KeyInit, OsRng, generic_array::GenericArray, rand_core::RngCore},
+    aead::{Aead, KeyInit, generic_array::GenericArray},
 };
+use rand::Rng;
 use std::time::SystemTime;
 
 pub struct Nano64Cipher {
@@ -88,7 +89,7 @@ impl Nano64Cipher {
 
     fn generate_iv() -> [u8; IV_LENGTH] {
         let mut iv = [0u8; IV_LENGTH];
-        OsRng.fill_bytes(&mut iv);
+        rand::rng().fill_bytes(&mut iv);
         iv
     }
 }

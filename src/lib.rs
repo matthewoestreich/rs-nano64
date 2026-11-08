@@ -17,12 +17,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-/// Global monotonic references
+/// To hold global state for monotonic id generation
 pub(crate) struct MonotonicRefs {
     pub(crate) last_timestamp: u128,
     pub(crate) last_random: u64,
 }
 
+/// Global monotonic references
 pub(crate) static MONOTONIC_REFS: LazyLock<Mutex<MonotonicRefs>> = LazyLock::new(|| {
     Mutex::new(MonotonicRefs {
         last_timestamp: 0,
@@ -34,12 +35,12 @@ pub(crate) const IV_LENGTH: usize = 12;
 pub(crate) const PAYLOAD_LENGTH: usize = IV_LENGTH + 8 + 16;
 // TIMESTAMP_BITS is the number of bits allocated to the millisecond timestamp (0..2^44-1).
 pub(crate) const TIMESTAMP_BITS: u64 = 44;
-// RANDOM_BITS is the number of bits allocated to the random field per millisecond (0..2^20-1).
-pub(crate) const RANDOM_BITS: u64 = 20;
 // TIMESTAMP_MASK is the mask for extracting the 44-bit timestamp from a u64 value.
 pub(crate) const TIMESTAMP_MASK: u64 = (1 << TIMESTAMP_BITS) - 1;
 // MAX_TIMESTAMP is the maximum timestamp value (2^44 - 1).
 pub(crate) const MAX_TIMESTAMP: u128 = TIMESTAMP_MASK as u128;
+// RANDOM_BITS is the number of bits allocated to the random field per millisecond (0..2^20-1).
+pub(crate) const RANDOM_BITS: u64 = 20;
 // RANDOM_MASK is the mask for the 20-bit random field.
 pub(crate) const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
 // Length of valid nano64 hex string WITHOUT dash

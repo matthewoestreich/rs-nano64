@@ -170,6 +170,16 @@ mod tests {
     }
 
     #[test]
+    fn echo_test_threads() {
+        let env_threads = std::env::var("RUST_TEST_THREADS")
+            .unwrap_or_else(|_| "Not explicitly set (defaults to logical CPUs)".to_string());
+
+        println!("\n--- TEST THREAD INFO ---");
+        println!("RUST_TEST_THREADS env: {}", env_threads);
+        println!("------------------------\n");
+    }
+
+    #[test]
     fn test_nano64_new() {
         let _zero = 0;
         let _max = !0u64;

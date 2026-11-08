@@ -53,6 +53,18 @@ pub(crate) const ID_BYTES_LENGTH: usize = 8;
 ///   `Ordering::Less` (if a < b)
 ///   `Ordering::Equal` (if a == b)
 ///   `Ordering::Greater` (if a > b)
+///
+/// # Examples
+///
+/// ```rust
+/// use std::cmp::Ordering;
+/// use nano64;
+///
+/// let a = nano64::generate().unwrap();
+/// let b = nano64::generate().unwrap();
+///
+/// assert_eq!(nano64::compare(&a, &b), Ordering::Less);
+/// ```
 pub fn compare(a: &Nano64, b: &Nano64) -> Ordering {
     if a.value < b.value {
         return Ordering::Less;

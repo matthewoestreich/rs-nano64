@@ -11,7 +11,7 @@ impl Hex {
 
     pub fn to_bytes(hex_str: &str) -> Result<Vec<u8>, Nano64Error> {
         let h = hex_str.strip_prefix("0x").unwrap_or(hex_str);
-        if h.len() % 2 != 0 {
+        if !h.len().is_multiple_of(2) {
             return Err(Nano64Error::HexStringNotEvenCharacters);
         }
         Vec::from_hex(h).map_err(|_| Nano64Error::HexStringContainsNonHexChars)

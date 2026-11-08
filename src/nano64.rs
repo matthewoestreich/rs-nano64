@@ -1,7 +1,7 @@
 use crate::{
-    ClockImpl, Hex, MAX_TIMESTAMP, Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, RANDOM_MASK,
-    RandomNumberGeneratorImpl, TIMESTAMP_MASK, TIMESTAMP_SHIFT, compare, default_rng,
-    monotonic_refs::*, time_now_since_epoch_ms,
+    ClockImpl, HEX_STRING_LENGTH_BYTES_DECODED, HEX_STRING_LENGTH_NO_DASH, Hex, MAX_TIMESTAMP,
+    Nano64EncryptionFactory, Nano64Error, RANDOM_BITS, RANDOM_MASK, TIMESTAMP_MASK,
+    TIMESTAMP_SHIFT, compare, default_rng, monotonic_refs::*, prng::PRNG, time_now_since_epoch_ms,
 };
 use std::{
     fmt, str,
@@ -11,6 +11,111 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct Nano64 {
     pub(crate) value: u64,
+}
+
+impl Nano64 {
+    pub fn new(value: u64) -> Self {
+        Self { value }
+    }
+}
+
+impl Nano64 {
+    /*
+    pub fn encrypted_factory(
+        key: &[u8],
+        clock: Option<ClockImpl>,
+        rng: Option<RandomNumberGeneratorImpl>,
+    ) -> Result<Nano64EncryptionFactory, Nano64Error> {
+        Nano64EncryptionFactory::new(key, clock, rng)
+    }
+    */
+
+    pub fn get_timestamp(&self) -> u64 {
+        (self.value >> RANDOM_BITS) & TIMESTAMP_MASK
+    }
+
+    pub fn get_random(&self) -> u32 {
+        (self.value & RANDOM_MASK) as u32
+    }
+
+    pub fn to_bytes(&self) -> [u8; 8] {
+        self.value.to_be_bytes()
+    }
+
+    pub fn to_hex(&self) -> String {
+        let full = format!("{:016X}", self.value);
+        const SPLIT: usize = 11;
+        format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
+    }
+
+    pub fn to_date(&self) -> SystemTime {
+        UNIX_EPOCH + Duration::from_millis(self.get_timestamp())
+    }
+
+    pub fn u64_value(&self) -> u64 {
+        self.value
+    }
+
+    pub fn equals(&self, other: &Nano64) -> bool {
+        compare(self, other) == 0
+    }
+
+    /*
+    pub(crate) fn generate_monotonic(
+        timestamp: u64,
+        rng: Option<RandomNumberGeneratorImpl>,
+    ) -> Result<Self, Nano64Error> {
+        if timestamp > MAX_TIMESTAMP {
+            return Err(Nano64Error::TimestampExceedsBitRange(timestamp));
+        }
+
+        let rng = if let Some(_rng) = rng {
+            _rng
+        } else {
+            default_rng
+        };
+
+        let monotonic_refs = get_monotonic_refs();
+        let mut refs = monotonic_refs
+            .lock()
+            .map_err(|_| Nano64Error::Custom("Error unlocking refs".into()))?;
+
+        // Enforce nondecreasing time
+        let mut ts = timestamp;
+        if ts < refs.last_timestamp {
+            ts = refs.last_timestamp;
+        }
+
+        let random: u64;
+        if ts == refs.last_timestamp {
+            // Same ms → increment
+            random = (refs.last_random + 1) & RANDOM_MASK;
+            if random == 0 {
+                ts += 1;
+                if ts > MAX_TIMESTAMP {
+                    return Err(Nano64Error::Custom(
+                        "timestamp overflow after incrementing for monotonic generation".into(),
+                    ));
+                }
+                refs.last_timestamp = ts;
+                refs.last_random = 0;
+                let ms = ts & TIMESTAMP_MASK;
+                let value = ms << TIMESTAMP_SHIFT;
+                return Ok(Self { value });
+            }
+        } else {
+            let random_value = rng(RANDOM_BITS as u32)?;
+            random = (random_value as u64) & RANDOM_MASK;
+        }
+
+        refs.last_timestamp = ts;
+        refs.last_random = random;
+        let ms = ts & TIMESTAMP_MASK;
+        let value = (ms << TIMESTAMP_SHIFT) | random;
+
+        Ok(Self { value })
+    }
+    */
 }
 
 impl Default for Nano64 {
@@ -60,24 +165,24 @@ impl str::FromStr for Nano64 {
             clean = stripped.to_string();
         }
 
-        if clean.len() != 16 {
-            return Err(Nano64Error::Error(format!(
-                "hex must be 16 chars after removing dash, got {}",
+        if clean.len() != HEX_STRING_LENGTH_NO_DASH {
+            return Err(Nano64Error::Custom(format!(
+                "hex must be {HEX_STRING_LENGTH_NO_DASH} chars after removing dash, got {}",
                 clean.len()
             )));
         }
 
         let bytes_vec = Hex::to_bytes(&clean)?;
-        if bytes_vec.len() != 8 {
-            return Err(Nano64Error::Error(format!(
-                "hex must decode to 8 bytes, got {}",
+        if bytes_vec.len() != HEX_STRING_LENGTH_BYTES_DECODED {
+            return Err(Nano64Error::Custom(format!(
+                "hex must decode to {HEX_STRING_LENGTH_BYTES_DECODED} bytes, got {}",
                 bytes_vec.len()
             )));
         }
 
         let bytes: [u8; 8] = bytes_vec
             .try_into()
-            .map_err(|_| Nano64Error::Error("hex must decode to exactly 8 bytes".into()))?;
+            .map_err(|_| Nano64Error::Custom("hex must decode to exactly 8 bytes".into()))?;
 
         let value = u64::from_be_bytes(bytes);
         Ok(Self { value })
@@ -114,144 +219,6 @@ impl fmt::Display for Nano64 {
     }
 }
 
-impl Nano64 {
-    pub fn new(value: u64) -> Self {
-        Self { value }
-    }
-
-    pub fn generate_default() -> Result<Self, Nano64Error> {
-        Self::generate_now(Some(default_rng))
-    }
-
-    pub fn generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Self, Nano64Error> {
-        Self::generate(time_now_since_epoch_ms(), rng)
-    }
-
-    pub fn generate_monotonic_now(
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Self, Nano64Error> {
-        Self::generate_monotonic(time_now_since_epoch_ms(), rng)
-    }
-
-    pub fn generate_monotonic_default() -> Result<Self, Nano64Error> {
-        Self::generate_monotonic_now(Some(default_rng))
-    }
-
-    pub fn encrypted_factory(
-        key: &[u8],
-        clock: Option<ClockImpl>,
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Nano64EncryptionFactory, Nano64Error> {
-        return Nano64EncryptionFactory::new(key, clock, rng);
-    }
-
-    pub fn get_timestamp(&self) -> u64 {
-        (self.value >> TIMESTAMP_SHIFT) & TIMESTAMP_MASK
-    }
-
-    pub fn get_random(&self) -> u32 {
-        (self.value & RANDOM_MASK) as u32
-    }
-
-    pub fn to_bytes(&self) -> [u8; 8] {
-        self.value.to_be_bytes()
-    }
-
-    pub fn to_hex(&self) -> String {
-        let full = format!("{:016X}", self.value);
-        const SPLIT: usize = 11;
-        format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
-    }
-
-    pub fn to_date(&self) -> SystemTime {
-        UNIX_EPOCH + Duration::from_millis(self.get_timestamp())
-    }
-
-    pub fn u64_value(&self) -> u64 {
-        self.value
-    }
-
-    pub fn equals(&self, other: &Nano64) -> bool {
-        compare(self, other) == 0
-    }
-
-    pub(crate) fn generate(
-        timestamp: u64,
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Self, Nano64Error> {
-        if timestamp > MAX_TIMESTAMP {
-            return Err(Nano64Error::TimeStampExceedsBitRange(timestamp));
-        }
-
-        let rng = if let Some(_rng) = rng {
-            _rng
-        } else {
-            default_rng
-        };
-
-        let random_value = rng(RANDOM_BITS as u32)?;
-        let ms = timestamp & TIMESTAMP_MASK;
-        let random = (random_value as u64) & RANDOM_MASK;
-        let value = (ms << TIMESTAMP_SHIFT) | random;
-
-        Ok(Self { value })
-    }
-
-    pub(crate) fn generate_monotonic(
-        timestamp: u64,
-        rng: Option<RandomNumberGeneratorImpl>,
-    ) -> Result<Self, Nano64Error> {
-        if timestamp > MAX_TIMESTAMP {
-            return Err(Nano64Error::TimeStampExceedsBitRange(timestamp));
-        }
-
-        let rng = if let Some(_rng) = rng {
-            _rng
-        } else {
-            default_rng
-        };
-
-        let monotonic_refs = get_monotonic_refs();
-        let mut refs = monotonic_refs
-            .lock()
-            .map_err(|_| Nano64Error::Error("Error unlocking refs".into()))?;
-
-        // Enforce nondecreasing time
-        let mut ts = timestamp;
-        if ts < refs.last_timestamp {
-            ts = refs.last_timestamp;
-        }
-
-        let random: u64;
-        if ts == refs.last_timestamp {
-            // Same ms → increment
-            random = (refs.last_random + 1) & RANDOM_MASK;
-            if random == 0 {
-                ts += 1;
-                if ts > MAX_TIMESTAMP {
-                    return Err(Nano64Error::Error(
-                        "timestamp overflow after incrementing for monotonic generation".into(),
-                    ));
-                }
-                refs.last_timestamp = ts;
-                refs.last_random = 0;
-                let ms = ts & TIMESTAMP_MASK;
-                let value = ms << TIMESTAMP_SHIFT;
-                return Ok(Self { value });
-            }
-        } else {
-            let random_value = rng(RANDOM_BITS as u32)?;
-            random = (random_value as u64) & RANDOM_MASK;
-        }
-
-        refs.last_timestamp = ts;
-        refs.last_random = random;
-        let ms = ts & TIMESTAMP_MASK;
-        let value = (ms << TIMESTAMP_SHIFT) | random;
-        return Ok(Self { value });
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -265,10 +232,9 @@ mod tests {
     use rand::Rng;
 
     use crate::{
-        Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare, default_rng,
+        Nano64, Nano64Error, RANDOM_BITS, TIMESTAMP_BITS, compare,
         monotonic_refs::get_monotonic_refs,
         nano64::{MAX_TIMESTAMP, RANDOM_MASK},
-        time_now_since_epoch_ms,
     };
 
     // Rust tests run concurrently by default. Some tests reset or manipulate the global
@@ -307,7 +273,7 @@ mod tests {
         fn rng(_bits: u32) -> Result<u32, Nano64Error> {
             Ok(0x12345) // Same as expected_random!
         }
-        let id = Nano64::generate(timestamp, Some(rng)).unwrap();
+        let id = crate::generate().unwrap(); // Nano64::generate(timestamp, Some(rng)).unwrap();
         assert_eq!(id.get_timestamp(), timestamp);
         assert_eq!(id.get_random(), expected_random);
     }
@@ -779,7 +745,7 @@ mod tests {
     #[test]
     fn test_nano64_failing_rng() {
         fn rng(_bits: u32) -> Result<u32, Nano64Error> {
-            Err(Nano64Error::Error("Simulated rng failure".into()))
+            Err(Nano64Error::Custom("Simulated rng failure".into()))
         }
         if let Ok(got) = Nano64::generate(1122334455, Some(rng)) {
             panic!("Expected error - rng failure - but got {got:?}");
@@ -791,7 +757,7 @@ mod tests {
         let _guard = get_monotonic_lock_for_tests().lock().unwrap();
         set_monotonic_refs_to(0, 1000);
         fn rng(_bits: u32) -> Result<u32, Nano64Error> {
-            Err(Nano64Error::Error("Simulated rng failure".into()))
+            Err(Nano64Error::Custom("Simulated rng failure".into()))
         }
         if let Ok(got) = Nano64::generate_monotonic(12345, Some(rng)) {
             panic!("Expected error - rng failure - but got {got:?}");

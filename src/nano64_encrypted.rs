@@ -38,7 +38,7 @@ impl Nano64EncryptionFactory {
         rng: Option<RandomNumberGeneratorImpl>,
     ) -> Result<Self, Nano64Error> {
         if aes_key.len() != 32 {
-            return Err(Nano64Error::Error("AES-256 key must be 32 bytes!".into()));
+            return Err(Nano64Error::Custom("AES-256 key must be 32 bytes!".into()));
         }
 
         let rng = if let Some(_rng) = rng {
@@ -66,10 +66,10 @@ impl Nano64EncryptionFactory {
         let ciphertext = self
             .gcm
             .encrypt(&nonce, plaintext.as_ref())
-            .map_err(|e| Nano64Error::Error(format!("Error during encryption! {e}")))?;
+            .map_err(|e| Nano64Error::Custom(format!("Error during encryption! {e}")))?;
 
         if ciphertext.len() != 8 + 16 {
-            return Err(Nano64Error::Error(format!(
+            return Err(Nano64Error::Custom(format!(
                 "unexpected AES-GCM output length: {}",
                 ciphertext.len()
             )));
@@ -102,7 +102,7 @@ impl Nano64EncryptionFactory {
     #[allow(clippy::wrong_self_convention)]
     pub fn from_encrypted_bytes(&self, bytes: &[u8]) -> Result<Nano64Encrypted, Nano64Error> {
         if bytes.len() != PAYLOAD_LENGTH {
-            return Err(Nano64Error::Error(format!(
+            return Err(Nano64Error::Custom(format!(
                 "encrypted payload must be {} bytes, got {}",
                 PAYLOAD_LENGTH,
                 bytes.len()
@@ -118,10 +118,10 @@ impl Nano64EncryptionFactory {
         let plaintext = self
             .gcm
             .decrypt(nonce, ciphertext)
-            .map_err(|_| Nano64Error::Error("decryption failed".into()))?;
+            .map_err(|_| Nano64Error::Custom("decryption failed".into()))?;
 
         if plaintext.len() != 8 {
-            return Err(Nano64Error::Error(format!(
+            return Err(Nano64Error::Custom(format!(
                 "decryption yielded invalid length: {}",
                 plaintext.len()
             )));
@@ -145,7 +145,7 @@ impl Nano64EncryptionFactory {
     pub fn from_encrypted_hex(&self, hex: String) -> Result<Nano64Encrypted, Nano64Error> {
         let bytes = Hex::to_bytes(hex.as_str())?;
         if bytes.len() != PAYLOAD_LENGTH {
-            return Err(Nano64Error::Error(format!(
+            return Err(Nano64Error::Custom(format!(
                 "Encrypted payload must be {} len, got {}",
                 PAYLOAD_LENGTH,
                 bytes.len()

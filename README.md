@@ -25,70 +25,71 @@ cargo add nano64
 
 ## Usage
 
-### Basic ID generation
+### Basic ID Generation
 
 ```rust
-use nano64::*;
+use nano64;
 
-fn main() -> Result<(), Nano64Error> {
-    let id = Nano64::generate_default()?;
+let id = nano64::generate().expect("id");
 
-    println!("{}", id.to_hex()); // 17‑char uppercase hex TIMESTAMP-RANDOM
-    // 199CB26E5C1-706DF
-    println!("{:?}", id.to_bytes()); // [8]byte
-    // [25, 156, 178, 110, 92, 23, 6, 223]
-    println!("{}", id.get_timestamp()); // ms since epoch
-    // 1760049948097
-    Ok(())
-}
+println!("value = {}", id.value());
+println!("timestamp = {}", id.timestamp());
+println!("random bits = {}", id.random());
+println!("date = {:?}", id.date());
+println!("hex = {}", id.hex());
+println!("bytes = {:?}", id.to_be_bytes());
 ```
 
-### Monotonic generation
+### Monotonic Generation
 
 Ensures strictly increasing values even if created in the same millisecond.
 
 ```rust
-fn main() -> Result<(), Nano64Error> {
-    let a = Nano64::generate_monotonic_default()?;
-    let b = Nano64::generate_monotonic_default()?;
-    println!("{}", nano64::compare(&a, &b)); // -1
+use nano64;
 
-    Ok(())
-}
+let a = nano64::generate_monotonic().expect("id");
+let b = nano64::generate_monotonic().expect("id");
+
+println!("a = {a:?}");
+println!("b = {b:?}");
 ```
 
-### AES‑GCM encryption
+### AES‑GCM Encryption
 
 IDs can easily be encrypted and decrypted to mask their timestamp value from public view.
 
 ```rust
-fn main() -> Result<(), Nano64Error> {
-    // Create 32-byte key (we use AES-256)
-    let key: [u8; 32] = [
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC,
-        0xFE, 0x0F, 0x1E, 0x2D, 0x3C, 0x4B, 0x5A, 0x69, 0x78, 0x87, 0x96, 0xA5, 0xB4, 0xC3, 0xD2,
-        0xE1, 0xF0,
-    ];
+use nano64::{self, Nano64Cipher};
 
-    let factory = Nano64::encrypted_factory(&key, None, None)?;
+// Create 32-byte key (we use AES-256)
+let key: [u8; 32] = [
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC,
+    0xFE, 0x0F, 0x1E, 0x2D, 0x3C, 0x4B, 0x5A, 0x69, 0x78, 0x87, 0x96, 0xA5, 0xB4, 0xC3, 0xD2,
+    0xE1, 0xF0,
+];
 
-    // Generate and encrypt
-    let wrapped = factory.generate_encrypted_now()?;
-    // or provide your own timestamp
-    // let wrapped = factory.generate_encrypted(your_timestamp)?;
+// Create a cipher, this is what allows you to encrypt/generate encrypted IDs
+let cipher = Nano64Cipher::new(key);
 
-    println!("{}", wrapped.id.to_hex()); // Unencrypted ID
-    // 199CB349B6C-F84AC
-    println!("{}", wrapped.to_encrypted_hex()); // 72-char hex payload
-    // D8A385F53E9AC7E13C04CDBA88C52629ED2A3B31422BF474569BBF3E482B7CCCC1605309
+// Generate and encrypt using default RNG and current timestamp
+let encrypted_now = cipher.generate_encrypted().expect("id");
 
-    // Decrypt later
-    let restored = factory.from_encrypted_hex(wrapped.to_encrypted_hex())?;
+println!("Payload bytes: = {encrypted_now:?}");
+// Payload bytes: = EncryptedNano64 { payload: [26, 38, 236, ...] }
 
-    println!("{}", restored.id.u64_value() == wrapped.id.u64_value()); // true
+let hex_payload = encrypted_now.to_hex().to_ascii_uppercase();
+println!("72-char hex payload = {hex_payload}");
+// 72-char hex payload = 1A26EC84662107B7A09C0BB0039D1B869A87620520724461233C13C808593B35AC7169AB
 
-    Ok(())
-}
+// Decrypt later...
+let decrypted_now = cipher.decrypt(&encrypted_now).expect("decrypted id");
+
+println!("Decrypted ID = {decrypted_now}");
+// Decrypted ID = Nano64{ value=1881315126699803069, timestamp=1794161917400, random=180669 }
+
+// Encrypt existing ID
+let existing = nano64::generate().expect("id");
+let encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
 ```
 
 ## Comparison with other identifiers
@@ -110,117 +111,97 @@ fn main() -> Result<(), Nano64Error> {
 
 ## API Summary
 
-### Generation Functions
+### ID Generation
 
-- **Creates a new ID with specified timestamp and RNG**
-```rust
-Nano64::generate(timestamp: u64, rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
-```
+`nano64::generate()`
 
-- **Creates an ID with current timestamp**
-```rust
-Nano64::generate_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
-```
+Generates a new ID using the current timestamp and default RNG.
 
-- **Creates an ID with current timestamp and default RNG**
-```rust
-Nano64::generate_default() -> Result<Nano64, Nano64Error>
-```
+`nano64::generate_at(timestamp)`
 
-- **Creates monotonic ID (strictly increasing)**
-```rust
-Nano64::generate_monotonic(timestamp: u64, rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
-```
+Generates a new ID using a provided `SystemTime` and the default RNG.
 
-- **Creates monotonic ID with current timestamp**
-```rust
-Nano64::generate_monotonic_now(rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64, Nano64Error>
-```
+`nano64::generate_with_rng(rng)`
 
-- **Creates monotonic ID with current timestamp and default RNG**
-```rust
-Nano64::generate_monotonic_default() -> Result<Nano64, Nano64Error>
-```
+Generates a new ID using the current timestamp and a custom RNG.
 
-### Parsing Functions
+`nano64::generate_with(timestamp, rng)`
 
-- **Parse from 16-char hex string (with or without dash)**
-```rust
-Nano64::from_str(hex_str: &str) -> Result<Nano64, Nano64Error>;
-// parse &str or String
-&str.parse::<Nano64>() -> Result<Nano64, Nano64Error>;
-String.parse::<Nano64>() -> Result<Nano64, Nano64Error>;
-// try_from &str or String
-Nano64::try_from(str: &str) -> Result<Nano64, Nano64Error>;
-Nano64::try_from(str: String) -> Result<Nano64, Nano64Error>;
-```
+Generates a new ID using a provided timestamp and custom RNG.
 
-- **Parse from 8 big-endian bytes**
-```rust
-Nano64::from(bytes: [u8; 8]) -> Nano64
-```
+### Monotonic ID Generation
 
-- **Create from u64 value**
-```rust
-Nano64::from(value: u64) -> Nano64
-```
+`nano64::generate_monotonic()`
 
-- **Create from u64 value (alias)**
-```rust
-new(value: u64) -> Nano64
-```
+Generates a monotonically increasing ID using the current timestamp and default RNG.
 
-### ID Methods
+`nano64::generate_monotonic_at(timestamp)`
 
-- **`to_hex() -> String`** - Returns 17-char uppercase hex (TIMESTAMP-RANDOM)
-- **`to_bytes() -> [u8; 8]`** - Returns 8-byte big-endian encoding
-- **`to_date() -> SystemTime`** - Converts embedded timestamp to SystemTime
-- **`get_timestamp() -> u64`** - Extracts embedded millisecond timestamp
-- **`get_random() -> u32`** - Extracts 20-bit random field
-- **`u64_value() -> u64`** - Returns raw u64 value
+Generates a monotonically increasing ID using a provided timestamp and the default RNG.
 
-### Comparison Functions
+`nano64::generate_monotonic_with_rng(rng)`
 
-- **Compare two IDs (-1, 0, 1)**
-```rust
-nano64::compare(a: &Nano64, b: &Nano64) -> i64
-```
+Generates a monotonically increasing ID using the current timestamp and a custom RNG.
 
-- **Check equality**
-```rust
-<Nano64>.equals(other &Nano64) -> bool
-```
+`nano64::generate_monotonic_with(timestamp, rng)`
 
-### Database Support
+Generates a monotonically increasing ID using a provided timestamp and custom RNG.
 
-In-progress!
+Monotonic generation guarantees strictly increasing IDs, even when multiple IDs are generated within the same millisecond. If all 20-bit random values are exhausted, the timestamp is advanced by 1 ms.
 
-### Encrypted IDs
+### Nano64
 
-- **Create factory with 32-byte AES-256 key**
-```rust
-encrypted_factory(key: &[u8], clock: Option<Clock>, rng: Option<RandomNumberGeneratorImpl>) -> Result<Nano64EncryptionFactory, Nano64Error>
-```
+`Nano64::from(value)` / `Nano64::try_from(hex)`
 
-- **Generate and encrypt ID**
-```rust
-factory.generate_encrypted(timestamp: u64) -> Result<Nano64Encrypted, Nano64Error>
-```
+Constructs a Nano64 from a `u64`, an 8-byte big-endian array, or a hexadecimal string.
 
-- **Encrypt existing ID**
-```rust
-factory.encrypt(id: Nano64) -> Result<Nano64Encrypted, Nano64Error>
-```
+`id.value()` / `id.to_be_bytes()`
 
-- **Decrypt from hex**
-```rust
-factory.from_encrypted_hex(hex: String) -> Result<Nano64Encrypted, Nano64Error> 
-```
+Access the underlying `u64` value or export it as 8 big-endian bytes.
 
-- **Decrypt from bytes**
-```rust
-factory.from_encrypted_bytes(bytes: &[u8]) -> Result<Nano64Encrypted, Nano64Error>
-```
+`id.hex()` / `id.to_string()`
+
+Export the ID as a hexadecimal string in `TIMESTAMP-RANDOM` format.
+
+`id.date()` / `id.timestamp()` / `id.random()`
+
+Extract the timestamp as a `SystemTime`, the Unix timestamp in milliseconds, or the 20-bit random component.
+
+`id.equals(other)` / `nano64::compare(a, b)`
+
+Compare two IDs for equality or ordering.
+
+### Encryption
+
+`Nano64Cipher::new(key)`
+
+Creates an AES-256-GCM cipher using a 32-byte key.
+
+`cipher.encrypt(id)` / `cipher.decrypt(encrypted)`
+
+Encrypts a Nano64 ID or decrypts an `EncryptedNano64` payload.
+
+`cipher.generate_encrypted()` / `cipher.generate_encrypted_at(timestamp)`
+
+Generates and encrypts a new ID using the current or provided timestamp.
+
+`cipher.generate_encrypted_with_rng(rng)`
+
+Generates and encrypts a new ID using a custom RNG.
+
+`cipher.generate_encrypted_with(timestamp, rng)`
+
+Generates and encrypts a new ID using a custom timestamp and custom RNG.
+
+### EncryptedNano64
+
+`EncryptedNano64::from_bytes(bytes)` / `EncryptedNano64::from_hex(hex)`
+
+Constructs an encrypted ID from its serialized byte array or hexadecimal representation.
+
+`encrypted.to_bytes()` / `encrypted.to_hex()`
+
+Exports the encrypted payload as bytes or a hexadecimal string.
 
 ## Design
 

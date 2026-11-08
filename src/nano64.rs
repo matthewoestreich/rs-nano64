@@ -193,7 +193,6 @@ mod tests {
     }
 
     #[test]
-
     fn test_nano64_generate() {
         let id = crate::generate().unwrap();
         let timestamp = get_timestamp_now();

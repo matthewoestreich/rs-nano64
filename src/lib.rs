@@ -58,12 +58,19 @@ pub(crate) const ID_BYTES_LENGTH: usize = 8;
 ///
 /// ```rust
 /// use std::cmp::Ordering;
+/// use std::time::{Duration, SystemTime};
+/// use std::ops::Sub;
 /// use nano64;
 ///
-/// let a = nano64::generate().unwrap();
-/// let b = nano64::generate().unwrap();
+/// let now = SystemTime::now();
+/// let past = SystemTime::now().sub(Duration::from_millis(200));
 ///
-/// assert_eq!(nano64::compare(&a, &b), Ordering::Less);
+/// let a = nano64::generate_at(now).unwrap();
+/// let b = nano64::generate_at(past).unwrap();
+///
+/// let comparison = nano64::compare(&a, &b);
+///
+/// assert_eq!(comparison, Ordering::Greater);
 /// ```
 pub fn compare(a: &Nano64, b: &Nano64) -> Ordering {
     if a.value < b.value {
@@ -76,16 +83,73 @@ pub fn compare(a: &Nano64, b: &Nano64) -> Ordering {
 }
 
 /// Generate a new ID using current timestamp and default RNG.
+///
+/// # Examples
+///
+/// ```rust
+/// #![allow(clippy::absurd_extreme_comparisons, unused_comparisons)]
+///
+/// use std::time::UNIX_EPOCH;
+/// use nano64;
+///
+/// let id = nano64::generate().unwrap();
+///
+/// assert!(id.date() > UNIX_EPOCH);
+/// assert!(id.timestamp() > 0);
+/// assert!(id.random() >= 0);
+/// assert!(id.hex() != "");
+/// assert!(id.value() >= 0);
+/// ```
 pub fn generate() -> Result<Nano64, Nano64Error> {
     generate_with_timestamp_and_rng(SystemTime::now(), &mut rand::rng())
 }
 
 /// Generate a new ID using your own timestamp and default RNG.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::time::{Duration, SystemTime};
+/// use std::ops::Sub;
+/// use nano64;
+///
+/// let time = SystemTime::now().sub(Duration::from_secs(10));
+/// let id = nano64::generate_at(time).unwrap();
+/// ```
 pub fn generate_at(timestamp: SystemTime) -> Result<Nano64, Nano64Error> {
     generate_with_timestamp_and_rng(timestamp, &mut rand::rng())
 }
 
 /// Generate a new ID using the current timestamp and your own RNG.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::convert::Infallible;
+/// use nano64;
+/// use rand;
+///
+/// struct AlwaysOneRNG;
+///
+/// impl rand::TryRng for AlwaysOneRNG {
+///     type Error = Infallible;
+///
+///     fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
+///         Ok(())
+///     }
+/// }
+///
+/// let mut rng = AlwaysOneRNG {};
+/// let id = nano64::generate_with_rng(&mut rng).unwrap();
+/// ```
 pub fn generate_with_rng<RNG>(rng: &mut RNG) -> Result<Nano64, Nano64Error>
 where
     RNG: rand::Rng,
@@ -94,6 +158,39 @@ where
 }
 
 /// Generate a new ID using your own timestamp and RNG.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::time::{Duration, SystemTime};
+/// use std::ops::Sub;
+/// use std::convert::Infallible;
+/// use nano64;
+/// use rand;
+///
+/// struct AlwaysOneRNG;
+///
+/// impl rand::TryRng for AlwaysOneRNG {
+///     type Error = Infallible;
+///
+///     fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+///         Ok(1)
+///     }
+///
+///     fn try_fill_bytes(&mut self, _dst: &mut [u8]) -> Result<(), Self::Error> {
+///         Ok(())
+///     }
+/// }
+///
+/// let time = SystemTime::now().sub(Duration::from_secs(10));
+/// let mut rng = AlwaysOneRNG {};
+///
+/// let id = nano64::generate_with(time, &mut rng).unwrap();
+/// ```
 pub fn generate_with<RNG>(timestamp: SystemTime, rng: &mut RNG) -> Result<Nano64, Nano64Error>
 where
     RNG: rand::Rng,

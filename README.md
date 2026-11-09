@@ -275,10 +275,10 @@ At a generation rate of **145 IDs per millisecond**, the probability of at least
 Generate IDs as fast as possible on a single thread while tracking collisions.
 
 - **Runs:** 5
-- **Average run time:** 575.96 ms
 - **IDs per run:** 10,000,000
 - **Total IDs generated:** 50,000,000
 - **Total unique IDs:** 49,584,633
+- **Average run time:** 575.96 ms
 - **Average throughput:** 17.37M IDs/sec
 - **Expected collision rate:** 0.8347%
 - **Average collision rate:** 0.8307% (~0.48% lower than expected)

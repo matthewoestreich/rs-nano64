@@ -34,13 +34,13 @@ let id = nano64::generate().expect("id");
 
 println!("value       = {}", id.value());
 println!("timestamp   = {}", id.timestamp());
-println!("random bits = {}", id.random());
+println!("random      = {}", id.random());
 println!("date        = {:?}", id.date());
 println!("hex         = {}", id.hex());
 println!("bytes       = {:?}", id.to_be_bytes());
 // value       = 1881354876126052188
 // timestamp   = 1794199825407
-// random bits = 81756
+// random      = 81756
 // date        = SystemTime { tv_sec: 1794199825, tv_nsec: 407000000 }
 // hex         = 1A1BEA4ABFF-13F5C
 // bytes       = [26, 27, 234, 74, 191, 241, 63, 92]

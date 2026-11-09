@@ -364,12 +364,12 @@ pub fn time_range_to_bytes(
     Ok(range_bytes)
 }
 
-// Crate-visible helper that computes the inclusive u64 bounds for a given millisecond timestamp range.
-// This is a utility for creating database range queries.
-//
-// Returns array with 2 elements, where array[0] is the low end of the range
-// and array[1] is the high end of the range.
-// The low and high represent the full range of possible Nano64 IDs
+/// Crate-visible helper that computes the inclusive u64 bounds for a given millisecond timestamp range.
+/// This is a utility for creating database range queries.
+///
+/// Returns array with 2 elements, where array[0] is the low end of the range
+/// and array[1] is the high end of the range.
+/// The low and high represent the full range of possible Nano64 IDs
 pub(crate) fn range_u64(start: u64, end: u64) -> Result<[u64; 2], Nano64Error> {
     if start > TIMESTAMP_MASK {
         return Err(Nano64Error::TimestampExceedsBitRange(start as u128));
@@ -391,7 +391,7 @@ pub(crate) fn range_u64(start: u64, end: u64) -> Result<[u64; 2], Nano64Error> {
     Ok([lo, hi])
 }
 
-// Private helper to generate ID using provided timestamp and rng
+/// Private helper to generate ID using provided timestamp and rng
 fn generate_with_timestamp_and_rng<RNG>(
     timestamp: SystemTime,
     rng: &mut RNG,
@@ -411,7 +411,7 @@ where
     Ok(Nano64::new(value))
 }
 
-// Private helper to generate monotonic ID using provided timestamp and rng
+/// Private helper to generate monotonic ID using provided timestamp and rng
 fn generate_monotonic_with_timestamp_and_rng<RNG>(
     timestamp: SystemTime,
     rng: &mut RNG,

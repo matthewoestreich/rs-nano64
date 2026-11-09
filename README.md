@@ -129,7 +129,7 @@ Nano64 IDs are time-sortable, enabling **index-only time-range queries** without
 
 ### Time-Based Range Queries
 
-Use `Nano64.timeRangeToBytes(startMs, endMs)` to obtain the **lowest** and **highest** possible Nano64 values for a given time window.
+Use `nano64::time_range_to_bytes(start_ms, end_ms)` to obtain the **lowest** and **highest** possible `Nano64` values for a given time window.
 These can be used directly in a SQL `BETWEEN` clause to select all rows created within that range.
 
 Using Nano64 as the **primary key** is recommended, since the database’s native index makes these range queries extremely fast.

@@ -17,10 +17,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-/// TIMESTAMP_BITS is the number of bits allocated to the millisecond timestamp (0..2^44-1).
+/// The number of bits allocated to the millisecond timestamp (0..2^44-1).
 pub const TIMESTAMP_BITS: u64 = 44;
 
-/// RANDOM_BITS is the number of bits allocated to the random field per millisecond (0..2^20-1).
+/// The number of bits allocated to the random field per millisecond (0..2^20-1).
 pub const RANDOM_BITS: u64 = 20;
 
 /// Length of valid nano64 hex string WITHOUT dash

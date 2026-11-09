@@ -1,4 +1,7 @@
-use crate::{NANO64_STRING_LENGTH, Nano64Error, RANDOM_BITS, RANDOM_MASK, TIMESTAMP_MASK, compare};
+use crate::{
+    NANO64_BYTES_LENGTH, NANO64_STRING_LENGTH, Nano64Error, RANDOM_BITS, RANDOM_MASK,
+    TIMESTAMP_HEX_LENGTH, TIMESTAMP_MASK, compare,
+};
 use hex::FromHex;
 use std::{
     cmp::Ordering,
@@ -32,7 +35,7 @@ impl Nano64 {
     }
 
     /// Get underlying vaue as be_bytes
-    pub fn to_be_bytes(&self) -> [u8; 8] {
+    pub fn to_be_bytes(&self) -> [u8; NANO64_BYTES_LENGTH] {
         self.value.to_be_bytes()
     }
 
@@ -41,9 +44,12 @@ impl Nano64 {
     /// the TIMESTAMP is `199C01B6659` and the RANDOM is `5861C`.
     pub fn hex(&self) -> String {
         let full = format!("{:016X}", self.value);
-        const SPLIT: usize = 11;
         // Format = TIMESTAMP-RANDOM
-        format!("{}-{}", &full[..SPLIT], &full[SPLIT..])
+        format!(
+            "{}-{}",
+            &full[..TIMESTAMP_HEX_LENGTH],
+            &full[TIMESTAMP_HEX_LENGTH..]
+        )
     }
 
     pub fn date(&self) -> SystemTime {
@@ -81,7 +87,7 @@ impl From<[u8; 8]> for Nano64 {
     }
 }
 
-// From hex string
+/// From hex string
 impl str::FromStr for Nano64 {
     type Err = Nano64Error;
 
@@ -107,7 +113,7 @@ impl str::FromStr for Nano64 {
     }
 }
 
-// From hex string
+/// From hex string
 impl TryFrom<&str> for Nano64 {
     type Error = Nano64Error;
 
@@ -116,7 +122,7 @@ impl TryFrom<&str> for Nano64 {
     }
 }
 
-// From hex stringg
+/// From hex stringg
 impl TryFrom<String> for Nano64 {
     type Error = Nano64Error;
 

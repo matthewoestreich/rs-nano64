@@ -33,19 +33,21 @@ pub(crate) static MONOTONIC_REFS: LazyLock<Mutex<MonotonicRefs>> = LazyLock::new
 
 pub(crate) const IV_LENGTH: usize = 12;
 pub(crate) const PAYLOAD_LENGTH: usize = IV_LENGTH + 8 + 16;
-// TIMESTAMP_BITS is the number of bits allocated to the millisecond timestamp (0..2^44-1).
+/// TIMESTAMP_BITS is the number of bits allocated to the millisecond timestamp (0..2^44-1).
 pub(crate) const TIMESTAMP_BITS: u64 = 44;
-// TIMESTAMP_MASK is the mask for extracting the 44-bit timestamp from a u64 value.
+/// TIMESTAMP_MASK is the mask for extracting the 44-bit timestamp from a u64 value.
 pub(crate) const TIMESTAMP_MASK: u64 = (1 << TIMESTAMP_BITS) - 1;
-// MAX_TIMESTAMP is the maximum timestamp value (2^44 - 1).
+/// Number of hexadecimal characters used to encode the timestamp portion of a Nano64 ID.
+pub(crate) const TIMESTAMP_HEX_LENGTH: usize = 11;
+/// MAX_TIMESTAMP is the maximum timestamp value (2^44 - 1).
 pub(crate) const MAX_TIMESTAMP: u128 = TIMESTAMP_MASK as u128;
-// RANDOM_BITS is the number of bits allocated to the random field per millisecond (0..2^20-1).
+/// RANDOM_BITS is the number of bits allocated to the random field per millisecond (0..2^20-1).
 pub(crate) const RANDOM_BITS: u64 = 20;
-// RANDOM_MASK is the mask for the 20-bit random field.
+/// RANDOM_MASK is the mask for the 20-bit random field.
 pub(crate) const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
-// Length of valid nano64 hex string WITHOUT dash
+/// Length of valid nano64 hex string WITHOUT dash
 pub(crate) const NANO64_STRING_LENGTH: usize = 16;
-// Number of bytes that make up an ID
+/// Number of bytes that make up an ID
 pub(crate) const NANO64_BYTES_LENGTH: usize = 8;
 
 /// Compare compares two IDs as unsigned 64-bit integers.

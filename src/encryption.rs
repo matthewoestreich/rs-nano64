@@ -199,7 +199,6 @@ mod tests {
 
         // Generate and encrypt using default RNG and current timestamp
         let encrypted_now = cipher.generate_encrypted().expect("id");
-
         println!("encrypted_now = {encrypted_now:?}");
         // encrypted_now = EncryptedNano64 { payload: [26, 38, 236, ...] }
 
@@ -213,12 +212,13 @@ mod tests {
 
         // Decrypt later...
         let decrypted_now = cipher.decrypt(&encrypted_now).expect("decrypted id");
-
         println!("Decrypted ID = {decrypted_now}");
         // Decrypted ID = Nano64{ value=1881315126699803069, timestamp=1794161917400, random=180669 }
 
         // Encrypt existing ID
         let existing = crate::generate().expect("id");
-        let _encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
+        let encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
+        println!("Encrypted existing = {encrypted_existing:?}");
+        // Encrypted existing = EncryptedNano64 { payload: [16, 43, 93, ...] }
     }
 }

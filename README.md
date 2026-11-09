@@ -32,12 +32,17 @@ use nano64;
 
 let id = nano64::generate().expect("id");
 
-println!("value = {}", id.value());
-println!("timestamp = {}", id.timestamp());
+println!("value       = {}", id.value());
+println!("timestamp   = {}", id.timestamp());
 println!("random bits = {}", id.random());
-println!("date = {:?}", id.date());
-println!("hex = {}", id.hex());
-println!("bytes = {:?}", id.to_be_bytes());
+println!("date        = {:?}", id.date());
+println!("hex         = {}", id.hex());
+println!("bytes       = {:?}", id.to_be_bytes());
+// timestamp   = 1794198656067
+// random bits = 597896
+// date        = SystemTime { tv_sec: 1794198656, tv_nsec: 67000000 }
+// hex         = 1A1BE92D443-91F88
+// bytes       = [26, 27, 233, 45, 68, 57, 31, 136]
 ```
 
 ### Monotonic Generation
@@ -73,27 +78,26 @@ let cipher = Nano64Cipher::new(key);
 
 // Generate and encrypt using default RNG and current timestamp
 let encrypted_now = cipher.generate_encrypted().expect("id");
-
 println!("encrypted_now = {encrypted_now:?}");
-// encrypted_now = EncryptedNano64 { payload: [26, 38, 236, ...] }
+// encrypted_now = EncryptedNano64 { payload: [21, 169, 207, ...] }
 
 let bytes_payload = encrypted_now.to_bytes();
 println!("Payload bytes = {bytes_payload:?}");
-// Payload bytes = [26, 38, 236, ...]
+// Payload bytes = [21, 169, 207, ...]
 
 let hex_payload = encrypted_now.to_hex().to_ascii_uppercase();
 println!("72-char hex payload = {hex_payload}");
-// 72-char hex payload = 1A26EC84662107B7A09C0BB0039D1B869A87620520724461233C13C808593B35AC7169AB
+// 72-char hex payload = 15A9CFD47DEB805A5E61210AEB9BDFE34BF91F019C57E18F83F53CDB1BAEE39E202E8785
 
 // Decrypt later...
 let decrypted_now = cipher.decrypt(&encrypted_now).expect("decrypted id");
-
 println!("Decrypted ID = {decrypted_now}");
-// Decrypted ID = Nano64{ value=1881315126699803069, timestamp=1794161917400, random=180669 }
+// Decrypted ID = Nano64{ value=1881354342969611461, timestamp=1794199316949, random=496837 }
 
 // Encrypt existing ID
 let existing = nano64::generate().expect("id");
 let encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
+// Encrypted existing = EncryptedNano64 { payload: [16, 43, 93, ...] }
 ```
 
 ## Comparison with other identifiers

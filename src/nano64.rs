@@ -20,7 +20,7 @@ impl Nano64 {
         Self { value }
     }
 
-    /// Get the backing value of ID, 44-bit timestamp + 20-bit randomness
+    /// Get the backing value of ID, 44-bit timestamp + 20-bit randomness.
     ///
     /// # Examples
     ///
@@ -35,7 +35,7 @@ impl Nano64 {
         self.value
     }
 
-    /// Get the 44-bit timestamp from ID
+    /// Get the 44-bit timestamp from ID.
     ///
     /// # Examples
     ///
@@ -50,7 +50,7 @@ impl Nano64 {
         (self.value >> RANDOM_BITS) & TIMESTAMP_MASK
     }
 
-    /// Get the 20-bit random part from ID
+    /// Get the 20-bit random part from ID.
     ///
     /// # Examples
     ///
@@ -64,7 +64,7 @@ impl Nano64 {
         (self.value & RANDOM_MASK) as u32
     }
 
-    /// Get underlying value as big endian bytes
+    /// Get underlying value as big endian bytes.
     ///
     /// # Examples
     ///
@@ -79,7 +79,7 @@ impl Nano64 {
         self.value.to_be_bytes()
     }
 
-    /// Returns ID as hexadecimal string in the following format: TIMESTAMP-RANDOM
+    /// Returns ID as hexadecimal string in the following format: TIMESTAMP-RANDOM.
     ///
     /// For example, given the following nano64 id : `199C01B6659-5861C`,
     /// the TIMESTAMP is `199C01B6659` and the RANDOM is `5861C`.
@@ -104,7 +104,7 @@ impl Nano64 {
         )
     }
 
-    /// Get timestamp as `SystemTime` relative to `UNIX_EPOCH`
+    /// Convert the timestamp (milliseconds since `UNIX_EPOCH`) to `SystemTime`.
     ///
     /// # Examples
     ///
@@ -120,7 +120,7 @@ impl Nano64 {
         UNIX_EPOCH + Duration::from_millis(self.timestamp())
     }
 
-    /// Check equality of underlying `value` against other Nano64
+    /// Check equality of underlying `value` against other Nano64.
     ///
     /// # Examples
     ///

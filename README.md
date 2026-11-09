@@ -136,7 +136,7 @@ Using Nano64 as the **primary key** is recommended, since the database’s nativ
 
 ### Storing Nano64 IDs in SQL
 
-Store IDs as unsigned big-endian bytes using `id.toBytes()` and a byte-ordered column type.
+Store IDs as unsigned big-endian bytes using `id.to_be_bytes()` and a byte-ordered column type.
 
 | DBMS        | Column Type | Notes                                                 |
 | ----------- | ----------- | ----------------------------------------------------- |

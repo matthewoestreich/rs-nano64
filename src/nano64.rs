@@ -1,4 +1,4 @@
-use crate::{HEX_STRING_LENGTH, Nano64Error, RANDOM_BITS, RANDOM_MASK, TIMESTAMP_MASK, compare};
+use crate::{NANO64_STRING_LENGTH, Nano64Error, RANDOM_BITS, RANDOM_MASK, TIMESTAMP_MASK, compare};
 use hex::FromHex;
 use std::{
     cmp::Ordering,
@@ -92,7 +92,7 @@ impl str::FromStr for Nano64 {
             clean = stripped.to_string();
         }
 
-        if clean.len() != HEX_STRING_LENGTH {
+        if clean.len() != NANO64_STRING_LENGTH {
             return Err(Nano64Error::HexStringInvalidLength(clean.len()));
         }
 

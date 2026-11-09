@@ -44,9 +44,9 @@ pub(crate) const RANDOM_BITS: u64 = 20;
 // RANDOM_MASK is the mask for the 20-bit random field.
 pub(crate) const RANDOM_MASK: u64 = (1 << RANDOM_BITS) - 1;
 // Length of valid nano64 hex string WITHOUT dash
-pub(crate) const HEX_STRING_LENGTH: usize = 16;
+pub(crate) const NANO64_STRING_LENGTH: usize = 16;
 // Number of bytes that make up an ID
-pub(crate) const ID_BYTES_LENGTH: usize = 8;
+pub(crate) const NANO64_BYTES_LENGTH: usize = 8;
 
 /// Compare compares two IDs as unsigned 64-bit integers.
 /// Returns:
@@ -334,6 +334,59 @@ where
     RNG: rand::Rng,
 {
     generate_monotonic_with_timestamp_and_rng(timestamp, rng)
+}
+
+/// Generates the start and end byte arrays for a database query based on a timestamp range.
+///
+/// # Examples
+///
+/// ```rust
+///  use nano64;
+///
+/// let max_timestamp: u64 = 17592186044415;
+/// let ts_start = max_timestamp - 10;
+/// let ts_end = ts_start + 9;
+/// let got = nano64::time_range_to_bytes(ts_start, ts_end).expect("valid range");
+/// let expect: [[u8; 8]; 2] = [
+///     [255, 255, 255, 255, 255, 80, 0, 0],
+///     [255, 255, 255, 255, 255, 239, 255, 255],
+/// ];
+/// assert_eq!(expect, got);
+/// ```
+pub fn time_range_to_bytes(
+    timestamp_start: u64,
+    timestamp_end: u64,
+) -> Result<[[u8; NANO64_BYTES_LENGTH]; 2], Nano64Error> {
+    let range = range_u64(timestamp_start, timestamp_end)?;
+    let range_bytes = [range[0].to_be_bytes(), range[1].to_be_bytes()];
+    Ok(range_bytes)
+}
+
+// Crate-visible helper that computes the inclusive u64 bounds for a given millisecond timestamp range.
+// This is a utility for creating database range queries.
+//
+// Returns array with 2 elements, where array[0] is the low end of the range
+// and array[1] is the high end of the range.
+// The low and high represent the full range of possible Nano64 IDs
+pub(crate) fn range_u64(start: u64, end: u64) -> Result<[u64; 2], Nano64Error> {
+    if start > TIMESTAMP_MASK {
+        return Err(Nano64Error::TimestampExceedsBitRange(start as u128));
+    }
+    if end > TIMESTAMP_MASK {
+        return Err(Nano64Error::TimestampExceedsBitRange(end as u128));
+    }
+    if start > end {
+        return Err(Nano64Error::Custom(format!(
+            "Parameter `start` must be less than or equal to parameter `end`. Got : start={start} end={end}"
+        )));
+    }
+
+    // Start of the range has random bits set to 0.
+    let lo = start << RANDOM_BITS;
+    // End of the range has random bits set to 1.
+    let hi = (end << RANDOM_BITS) | RANDOM_MASK;
+
+    Ok([lo, hi])
 }
 
 // Private helper to generate ID using provided timestamp and rng

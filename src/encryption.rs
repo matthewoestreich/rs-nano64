@@ -1,4 +1,4 @@
-use crate::{ID_BYTES_LENGTH, IV_LENGTH, Nano64, Nano64Error, PAYLOAD_LENGTH};
+use crate::{IV_LENGTH, NANO64_BYTES_LENGTH, Nano64, Nano64Error, PAYLOAD_LENGTH};
 use aes_gcm::{
     Aes256Gcm, Key, Nonce,
     aead::{Aead, KeyInit, generic_array::GenericArray},
@@ -42,7 +42,7 @@ impl Nano64Cipher {
         let ciphertext = &bytes[IV_LENGTH..];
         let nonce = GenericArray::from_slice(iv);
 
-        let bytes_decrypted: [u8; ID_BYTES_LENGTH] = self
+        let bytes_decrypted: [u8; NANO64_BYTES_LENGTH] = self
             .cipher
             .decrypt(nonce, ciphertext)
             .map_err(|_| Nano64Error::DecryptionFailed)?

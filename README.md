@@ -113,6 +113,42 @@ let encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
 | Dependencies           | None (crypto optional)                    | None                        | None                    | Central service or worker ID |
 | Target use             | Compact, sortable, optionally private IDs | Human-readable sortable IDs | Pure random identifiers | Distributed service IDs      |
 
+> Nano64 keeps the chronological behavior of ULIDs but in 64 bits instead of 128, cutting key size by half while accepting a lower random-entropy budget.
+
+## Security and Uniqueness Boundaries
+
+Raw Nano64 IDs contain only 20 random bits. They are appropriate for compact, time-sortable database keys where collision risk is understood and handled by normal uniqueness constraints or monotonic generation.
+
+Do **not** use raw Nano64 values as session tokens, password reset tokens, API keys, invitation secrets, CSRF tokens, or other bearer credentials. Use UUIDv4, a larger random token, or another purpose-built secret format for those cases.
+
+The AES-GCM wrapper hides the embedded timestamp, but possession of a valid encrypted ID should never grant access by itself. Treat it as an opaque identifier and enforce authorization separately.
+
+## Database Usage
+
+Nano64 IDs are time-sortable, enabling **index-only time-range queries** without needing a separate timestamp column.
+
+### Time-Based Range Queries
+
+Use `Nano64.timeRangeToBytes(startMs, endMs)` to obtain the **lowest** and **highest** possible Nano64 values for a given time window.
+These can be used directly in a SQL `BETWEEN` clause to select all rows created within that range.
+
+Using Nano64 as the **primary key** is recommended, since the database’s native index makes these range queries extremely fast.
+
+### Storing Nano64 IDs in SQL
+
+Store IDs as unsigned big-endian bytes using `id.toBytes()` and a byte-ordered column type.
+
+| DBMS        | Column Type | Notes                                                 |
+| ----------- | ----------- | ----------------------------------------------------- |
+| SQLite      | `BLOB(8)`   | Lexicographic byte order matches unsigned big-endian. |
+| PostgreSQL  | `BYTEA(8)`  | Works with primary key indexes.                       |
+| MySQL 8+    | `BINARY(8)` | Use binary collation.                                 |
+| MariaDB     | `BINARY(8)` | Same as MySQL.                                        |
+| SQL Server  | `BINARY(8)` | Clustered index sorts by bytes.                       |
+| Oracle      | `RAW(8)`    | Bytewise comparison.                                  |
+| CockroachDB | `BYTES(8)`  | Bytewise ordering.                                    |
+| DuckDB      | `BLOB(8)`   | Bytewise ordering.                                    |
+
 ## API Summary
 
 ### ID Generation

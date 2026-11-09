@@ -1,4 +1,4 @@
-use crate::{HEX_STRING_LENGTH, ID_BYTES_LENGTH};
+use crate::{NANO64_BYTES_LENGTH, NANO64_STRING_LENGTH};
 use std::{
     error,
     fmt::{Display, Formatter, Result},
@@ -23,18 +23,22 @@ impl Display for Nano64Error {
         match self {
             Custom(s) => write!(f, "{s}"),
             TimestampExceedsBitRange(got) => {
-                write!(f, "Timestamp exceeds the 44-bit range. Got={got}")
+                write!(
+                    f,
+                    "Timestamp exceeds the 44-bit range. Max timestamp = '{}', got = '{got}'",
+                    crate::MAX_TIMESTAMP
+                )
             }
             HexStringInvalidLength(got) => {
                 write!(
                     f,
-                    "Hex string invalid length, expected {HEX_STRING_LENGTH} got {got}"
+                    "Hex string invalid length, expected {NANO64_STRING_LENGTH} got {got}"
                 )
             }
             IdInvalidBytesLength(got) => {
                 write!(
                     f,
-                    "Invalid bytes length, expected {ID_BYTES_LENGTH} got {got}"
+                    "Invalid bytes length, expected {NANO64_BYTES_LENGTH} got {got}"
                 )
             }
             SystemTime(error) => write!(f, "System time error {error}"),

@@ -25,6 +25,8 @@ cargo add nano64
 
 ## Usage
 
+⚠️ Do **not** use raw Nano64 values as session tokens, password reset tokens, API keys, invitation secrets, CSRF tokens, or other bearer credentials. Use UUIDv4, a larger random token, or another purpose-built secret format for those cases.
+
 ### Basic ID Generation
 
 ```rust
@@ -98,8 +100,17 @@ println!("Decrypted ID = {decrypted_now}");
 // Encrypt existing ID
 let existing = nano64::generate().expect("id");
 let encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
+println!("Encrypted existing = {encrypted_existing:?}");
 // Encrypted existing = EncryptedNano64 { payload: [16, 43, 93, ...] }
 ```
+
+## Security and Uniqueness Boundaries
+
+Raw Nano64 IDs contain only 20 random bits. They are appropriate for compact, time-sortable database keys where collision risk is understood and handled by normal uniqueness constraints or monotonic generation.
+
+⚠️<br>Do **not** use raw Nano64 values as session tokens, password reset tokens, API keys, invitation secrets, CSRF tokens, or other bearer credentials. Use UUIDv4, a larger random token, or another purpose-built secret format for those cases.<br>⚠️
+
+The AES-GCM wrapper hides the embedded timestamp, but possession of a valid encrypted ID should never grant access by itself. Treat it as an opaque identifier and enforce authorization separately.
 
 ## Comparison with other identifiers
 
@@ -119,14 +130,6 @@ let encrypted_existing = cipher.encrypt(existing).expect("encrypted id");
 | Target use             | Compact, sortable, optionally private IDs | Human-readable sortable IDs | Pure random identifiers | Distributed service IDs      |
 
 > Nano64 keeps the chronological behavior of ULIDs but in 64 bits instead of 128, cutting key size by half while accepting a lower random-entropy budget.
-
-## Security and Uniqueness Boundaries
-
-Raw Nano64 IDs contain only 20 random bits. They are appropriate for compact, time-sortable database keys where collision risk is understood and handled by normal uniqueness constraints or monotonic generation.
-
-Do **not** use raw Nano64 values as session tokens, password reset tokens, API keys, invitation secrets, CSRF tokens, or other bearer credentials. Use UUIDv4, a larger random token, or another purpose-built secret format for those cases.
-
-The AES-GCM wrapper hides the embedded timestamp, but possession of a valid encrypted ID should never grant access by itself. Treat it as an opaque identifier and enforce authorization separately.
 
 ## Database Usage
 
@@ -253,22 +256,94 @@ Exports the encrypted payload as bytes or a hexadecimal string.
 | 44   | Timestamp (ms) | Chronological order | 1970–2527             |
 | 20   | Random         | Collision avoidance | 1,048,576 patterns/ms |
 
-## Benchmark
+## Benchmarks
 
-Run the collision resistance demonstration:
+Run benchmarks:
 
 ```bash
 cargo bench --bench nano64
 ```
 
-**Benchmark Results:**
+### Collisions
 
-The collision resistance test performs four comprehensive scenarios:
+Because Nano64 uses **20 bits of randomness**, there are **1,048,576 possible random values per millisecond**. This is the theoretical maximum number of distinct IDs that can be generated within a single millisecond.
 
-1. **Single-threaded high-speed**: 5.3M IDs/sec with 0.29% collisions
-2. **Concurrent generation**: ~80M IDs/sec with 0.1642% collisions across 10 threads
-3. **Sustained safe rate**: 145k IDs/sec over 10 seconds with <0.05% collisions
-4. **Maximum throughput burst**: 4.9M IDs/sec with 0.21% collisions
+At a generation rate of **145 IDs per millisecond**, the probability of at least one collision is approximately **1%**. This makes **145,000 IDs/sec** a practical target for sustained generation, with an expected duplicate-ID rate of approximately **0.0069%**.
+
+#### Single Thread
+
+Generate IDs as fast as possible on a single thread while tracking collisions.
+
+- **Runs:** 5
+- **Average run time:** 575.96 ms
+- **Total IDs generated:** 50,000,000
+- **Total unique IDs:** 49,584,633
+- **Average throughput:** 17.37M IDs/sec
+- **Expected collision rate:** 0.8347%
+- **Average collision rate:** 0.8307% (~0.48% lower than expected)
+- **Expected collisions:** 417,358
+- **Actual collisions:** 415,367
+- **Actual / expected:** 0.9952x (~99.52% of expected collisions)
+- **Maximum IDs/ms:** 18,939
+- **Maximum collisions/ms:** 207
+
+#### Multiple Threads
+
+Concurrently generate IDs as fast as possible over multiple threads while tracking collisions
+
+- **Runs:** 5
+- **Threads:** 10
+- **IDs per run:** 10,000,000
+- **Average run time:** 81.92 ms
+- **Median run time:** 80.62 ms
+- **Total IDs generated:** 50,000,000
+- **Total unique IDs:** 47,105,085
+- **Average throughput:** 122.22M IDs/sec
+- **Aggregate throughput:** 122.07M IDs/sec
+- **Expected collision rate:** 6.0312%
+- **Average collision rate:** 5.7898% (~4% lower than expected)
+- **Expected collisions:** 3,015,582
+- **Actual collisions:** 2,894,915
+- **Actual / expected:** 0.9600x (~96% of expected collisions)
+- **Maximum IDs/ms:** 147,837
+- **Maximum collisions/ms:** 10,041
+
+#### Sustained Rate
+
+Throttle ID generation to a safe sustained rate of **145k IDs/sec** over **10 seconds**.
+
+- **Target rate:** 145,000 IDs/sec
+- **Duration:** 10.00s
+- **Generated IDs:** 1,450,000
+- **Unique IDs:** 1,449,891
+- **Expected collisions:** 99.56
+- **Actual collisions:** 109
+- **Collision percentage:** 0.0075%
+- **Actual / expected:** 1.09x
+
+### Speed
+
+#### Single Thread
+
+Generate IDs as fast as possible on a single thread.
+
+- **Runs:** 5
+- **Average run time:** 249.47 ms
+- **IDs per run:** 5,000,000
+- **Median throughput:** 19,851,602.44 IDs/sec
+- **Minimum throughput:** 19,756,522.75 IDs/sec
+- **Maximum throughput:** 20,553,586.43 IDs/sec
+
+#### Multiple Threads
+
+Concurrently generate IDs as fast as possible across multiple threads.
+
+- **Runs:** 5
+- **Threads:** 10
+- **IDs per run:** 5,000,000
+- **Median throughput:** 136,591,100.28 IDs/sec
+- **Minimum throughput:** 126,221,145.40 IDs/sec
+- **Maximum throughput:** 142,380,935.58 IDs/sec
 
 ## Tests
 

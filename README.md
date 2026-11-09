@@ -289,7 +289,7 @@ Generate IDs as fast as possible on a single thread while tracking collisions.
 
 #### Multiple Threads
 
-Concurrently generate IDs as fast as possible over multiple threads while tracking collisions
+Concurrently generate IDs as fast as possible over multiple threads while tracking collisions.
 
 - **Runs:** 5
 - **Threads:** 10

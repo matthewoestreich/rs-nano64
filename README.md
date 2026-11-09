@@ -276,6 +276,7 @@ Generate IDs as fast as possible on a single thread while tracking collisions.
 
 - **Runs:** 5
 - **Average run time:** 575.96 ms
+- **IDs per run:** 10,000,000
 - **Total IDs generated:** 50,000,000
 - **Total unique IDs:** 49,584,633
 - **Average throughput:** 17.37M IDs/sec
@@ -294,10 +295,10 @@ Concurrently generate IDs as fast as possible over multiple threads while tracki
 - **Runs:** 5
 - **Threads:** 10
 - **IDs per run:** 10,000,000
-- **Average run time:** 81.92 ms
-- **Median run time:** 80.62 ms
 - **Total IDs generated:** 50,000,000
 - **Total unique IDs:** 47,105,085
+- **Average run time:** 81.92 ms
+- **Median run time:** 80.62 ms
 - **Average throughput:** 122.22M IDs/sec
 - **Aggregate throughput:** 122.07M IDs/sec
 - **Expected collision rate:** 6.0312%

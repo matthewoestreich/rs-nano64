@@ -371,10 +371,10 @@ pub fn time_range_to_bytes(
 /// and array[1] is the high end of the range.
 /// The low and high represent the full range of possible Nano64 IDs
 pub(crate) fn range_u64(start: u64, end: u64) -> Result<[u64; 2], Nano64Error> {
-    if start > TIMESTAMP_MASK {
+    if start as u128 > MAX_TIMESTAMP {
         return Err(Nano64Error::TimestampExceedsBitRange(start as u128));
     }
-    if end > TIMESTAMP_MASK {
+    if end as u128 > MAX_TIMESTAMP {
         return Err(Nano64Error::TimestampExceedsBitRange(end as u128));
     }
     if start > end {

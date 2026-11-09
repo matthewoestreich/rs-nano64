@@ -79,8 +79,8 @@ impl From<u64> for Nano64 {
     }
 }
 
-impl From<[u8; 8]> for Nano64 {
-    fn from(be_bytes: [u8; 8]) -> Self {
+impl From<[u8; NANO64_BYTES_LENGTH]> for Nano64 {
+    fn from(be_bytes: [u8; NANO64_BYTES_LENGTH]) -> Self {
         Self {
             value: u64::from_be_bytes(be_bytes),
         }
@@ -104,7 +104,7 @@ impl str::FromStr for Nano64 {
             return Err(Nano64Error::HexStringInvalidLength(clean.len()));
         }
 
-        let bytes: [u8; 8] = Vec::<u8>::from_hex(&clean)?
+        let bytes: [u8; NANO64_BYTES_LENGTH] = Vec::<u8>::from_hex(&clean)?
             .try_into()
             .map_err(|bytes: Vec<u8>| Nano64Error::IdInvalidBytesLength(bytes.len()))?;
 
@@ -175,6 +175,31 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("get_timestamp_now error")
             .as_millis() as u64
+    }
+
+    #[test]
+    fn test_time_range_to_bytes() {
+        let max_timestamp: u64 = 17592186044415;
+        let ts_start = max_timestamp - 10;
+        let ts_end = ts_start + 9;
+        let got = crate::time_range_to_bytes(ts_start, ts_end).expect("valid range");
+        let expect: [[u8; 8]; 2] = [
+            [255, 255, 255, 255, 255, 80, 0, 0],
+            [255, 255, 255, 255, 255, 239, 255, 255],
+        ];
+        assert_eq!(expect, got);
+    }
+
+    #[test]
+    fn test_time_range_to_bytes_failure() {
+        let max_timestamp: u64 = 17592186044415;
+        // Greater than max_timestamp
+        let ts_start = max_timestamp + 10;
+        let ts_end = ts_start + 1;
+        assert_matches!(
+            crate::time_range_to_bytes(ts_start, ts_end),
+            Err(Nano64Error::TimestampExceedsBitRange(_))
+        );
     }
 
     #[test]

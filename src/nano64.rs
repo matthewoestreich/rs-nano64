@@ -6,6 +6,8 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+/// A 64-bit unique identifier containing a 44-bit
+/// Unix timestamp (milliseconds) and a 20-bit random value.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Nano64 {
     pub(crate) value: u64,

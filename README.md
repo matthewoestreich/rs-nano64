@@ -74,7 +74,7 @@ let key: [u8; 32] = [
     0xE1, 0xF0,
 ];
 
-// Create a cipher, this is what allows you to encrypt/generate encrypted IDs
+// Create a cipher, this is what allows you to encrypt/decrypt/generate encrypted IDs
 let cipher = Nano64Cipher::new(key);
 
 // Generate and encrypt using default RNG and current timestamp
@@ -241,10 +241,6 @@ Generates and encrypts a new ID using a custom RNG.
 Generates and encrypts a new ID using a custom timestamp and custom RNG.
 
 ### EncryptedNano64
-
-`EncryptedNano64::from_bytes(bytes)` / `EncryptedNano64::from_hex(hex)`
-
-Constructs an encrypted ID from its serialized byte array or hexadecimal representation.
 
 `encrypted.to_bytes()` / `encrypted.to_hex()`
 

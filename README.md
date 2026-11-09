@@ -272,19 +272,17 @@ The collision resistance test performs four comprehensive scenarios:
 
 ## Tests
 
-Run:
+For unit tests run:
 
 ```bash
 cargo test
 ```
 
-All unit tests cover:
+For doc tests run:
 
-- Hex ↔ bytes conversions
-- BigInt encoding
-- Timestamp extraction and monotonic logic
-- AES‑GCM encryption/decryption integrity
-- Overflow edge cases
+```bash
+cargo test --doc
+```
 
 ## License
 

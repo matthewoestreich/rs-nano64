@@ -38,11 +38,12 @@ println!("random bits = {}", id.random());
 println!("date        = {:?}", id.date());
 println!("hex         = {}", id.hex());
 println!("bytes       = {:?}", id.to_be_bytes());
-// timestamp   = 1794198656067
-// random bits = 597896
-// date        = SystemTime { tv_sec: 1794198656, tv_nsec: 67000000 }
-// hex         = 1A1BE92D443-91F88
-// bytes       = [26, 27, 233, 45, 68, 57, 31, 136]
+// value       = 1881354876126052188
+// timestamp   = 1794199825407
+// random bits = 81756
+// date        = SystemTime { tv_sec: 1794199825, tv_nsec: 407000000 }
+// hex         = 1A1BEA4ABFF-13F5C
+// bytes       = [26, 27, 234, 74, 191, 241, 63, 92]
 ```
 
 ### Monotonic Generation

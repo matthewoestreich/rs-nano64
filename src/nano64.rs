@@ -4,7 +4,6 @@ use crate::{
 };
 use hex::FromHex;
 use std::{
-    cmp::Ordering,
     fmt, str,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -21,20 +20,61 @@ impl Nano64 {
         Self { value }
     }
 
+    /// Get the backing value of ID
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use nano64;
+    ///
+    /// let id = nano64::generate().unwrap();
+    ///
+    /// assert!(id.value() > 0);
+    /// ```
     pub fn value(&self) -> u64 {
         self.value
     }
 
+    /// Get timestamp from ID
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use nano64;
+    ///
+    /// let id = nano64::generate().unwrap();
+    ///
+    /// assert!(id.timestamp() > 0);
+    /// ```
     pub fn timestamp(&self) -> u64 {
         (self.value >> RANDOM_BITS) & TIMESTAMP_MASK
     }
 
-    /// Get random part from id
+    /// Get random part from ID
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use nano64;
+    ///
+    /// let id = nano64::generate().unwrap();
+    /// let random_part = id.random();
+    /// ```
     pub fn random(&self) -> u32 {
         (self.value & RANDOM_MASK) as u32
     }
 
-    /// Get underlying vaue as be_bytes
+    /// Get underlying vaue as big endian bytes
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use nano64;
+    ///
+    /// let id = nano64::generate().unwrap();
+    ///
+    /// assert!(!id.to_be_bytes().is_empty());
+    /// ```
     pub fn to_be_bytes(&self) -> [u8; NANO64_BYTES_LENGTH] {
         self.value.to_be_bytes()
     }
@@ -42,6 +82,17 @@ impl Nano64 {
     /// Returns ID as hexadecimal string in the following format: TIMESTAMP-RANDOM
     /// For example, given the following nano64 id : `199C01B6659-5861C`,
     /// the TIMESTAMP is `199C01B6659` and the RANDOM is `5861C`.
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use nano64;
+    ///
+    /// let id = nano64::generate().unwrap();
+    ///
+    /// assert!(!id.hex().is_empty());
+    /// ```
     pub fn hex(&self) -> String {
         let full = format!("{:016X}", self.value);
         // Format = TIMESTAMP-RANDOM
@@ -52,12 +103,36 @@ impl Nano64 {
         )
     }
 
+    /// Get timestamp as `SystemTime`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::time::{UNIX_EPOCH, SystemTime};
+    /// use nano64;
+    ///
+    /// let id = nano64::generate().unwrap();
+    ///
+    /// assert!(id.date() > UNIX_EPOCH);
+    /// ```
     pub fn date(&self) -> SystemTime {
         UNIX_EPOCH + Duration::from_millis(self.timestamp())
     }
 
+    /// Check equality against other Nano64
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use nano64;
+    ///
+    /// let a = nano64::generate().unwrap();
+    /// let b = nano64::generate().unwrap();
+    ///
+    /// assert!(!a.equals(&b));
+    /// ```
     pub fn equals(&self, other: &Nano64) -> bool {
-        compare(self, other) == Ordering::Equal
+        compare(self, other).is_eq()
     }
 }
 
@@ -249,19 +324,23 @@ mod tests {
 
     #[test]
     fn test_nano64_generate_monotonic() {
-        {
-            let mut refs = crate::MONOTONIC_REFS.lock().unwrap();
-            refs.last_timestamp = 0;
-            refs.last_random = 0;
-        }
-
         // Generate id's
         let id_1 = crate::generate_monotonic().expect("monotonic id");
+        thread::sleep(Duration::from_millis(100));
         let id_2 = crate::generate_monotonic().expect("monotonic id");
         // Second id should be greater than first
         assert_eq!(crate::compare(&id_2, &id_1), Ordering::Greater);
-        // Both shoulld have same timestamp
-        assert_eq!(id_1.timestamp(), id_2.timestamp());
+    }
+
+    #[test]
+    fn test_nano64_monotonic_same_timestamp() {
+        let ts = SystemTime::now();
+        let id1 = crate::generate_monotonic_at(ts).expect("monotonic id");
+        let id2 = crate::generate_monotonic_at(ts).expect("monotonic id");
+        // Should have same timestamp but different randoms
+        assert_eq!(id1.timestamp(), id2.timestamp());
+        assert_ne!(id1.random(), id2.random());
+        assert_ne!(id1.value(), id2.value());
     }
 
     #[test]

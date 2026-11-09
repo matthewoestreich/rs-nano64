@@ -316,11 +316,12 @@ Throttle ID generation to a safe sustained rate of **145k IDs/sec** over **10 se
 - **Target rate:** 145,000 IDs/sec
 - **Duration:** 10.00s
 - **Generated IDs:** 1,450,000
-- **Unique IDs:** 1,449,891
+- **Unique IDs:** 1,449,903
+- **Expected collision rate:** 0.00687%
+- **Actual collision rate:** 0.0067% (~2.57% lower than expected)
 - **Expected collisions:** 99.56
-- **Actual collisions:** 109
-- **Collision percentage:** 0.0075%
-- **Actual / expected:** 1.09x
+- **Actual collisions:** 97
+- **Actual / expected:** 0.97x (~97% of expected collisions)
 
 ### Speed
 

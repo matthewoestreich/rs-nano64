@@ -11,10 +11,10 @@ use std::{
 const RANDOM_SPACE: f64 = (1 << 20) as f64;
 
 fn main() {
-    run_single_threaded_throughput();
-    run_concurrent_multi_threaded_throughput();
-    run_single_thread_collision_distribution();
-    run_concurrent_multi_threaded_collision_distribution();
+    // run_single_threaded_throughput();
+    // run_concurrent_multi_threaded_throughput();
+    // run_single_thread_collision_distribution();
+    // run_concurrent_multi_threaded_collision_distribution();
     run_sustained_generation();
 }
 
@@ -687,40 +687,66 @@ fn benchmark_sustained_generation(config: SustainedGenerationConfig) {
 
     let unique_ids = generated - total_collisions;
     let collision_percentage = total_collisions as f64 / generated as f64 * 100.0;
+    let expected_collision_percentage = expected_collisions / generated as f64 * 100.0;
 
     let ids_per_second = generated as f64 / elapsed.as_secs_f64();
     let average_ids_per_ms = generated as f64 / occupied_timestamps as f64;
 
     println!("\nResults:");
-    println!("  Generated IDs:          {}", with_commas(generated));
-    println!("  Unique IDs:             {}", with_commas(unique_ids));
-    println!("  Expected collisions:    {:.2}", expected_collisions);
     println!(
-        "  Actual collisions:      {}",
+        "  Generated IDs: __ _ _ _ _ _ _ _ {}",
+        with_commas(generated)
+    );
+    println!(
+        "  Unique IDs: _ _ _ _ _ _ _ _ _ _ {}",
+        with_commas(unique_ids)
+    );
+    println!(
+        "  Expected collisions: __ _ _ _ _ {:.2}",
+        expected_collisions
+    );
+    println!(
+        "  Actual collisions: __ _ _ _ _ _ {}",
         with_commas(total_collisions)
     );
-    println!("  Collision percentage:   {:.4}%", collision_percentage);
     println!(
-        "  Actual / expected:      {:.2}x",
+        "  Expected collision percentage:  {:.6}%",
+        expected_collision_percentage
+    );
+    println!(
+        "  Actual collision percentage: __ {:.4}%",
+        collision_percentage
+    );
+    println!(
+        "  Actual / expected: __ _ _ _ _ _ {:.2}x",
         total_collisions as f64 / expected_collisions
     );
 
     println!("\nTiming:");
-    println!("  Elapsed:                {:.3}s", elapsed.as_secs_f64());
     println!(
-        "  Actual throughput:      {} IDs/sec",
+        "  Elapsed: __ _ _ _ _ _ _ _ _ _ _ {:.3}s",
+        elapsed.as_secs_f64()
+    );
+    println!(
+        "  Actual throughput: __ _ _ _ _ _ {} IDs/sec",
         with_commas(format!("{:.2}", ids_per_second))
     );
 
     println!("\nTimestamp Distribution:");
     println!(
-        "  Occupied milliseconds:  {}",
+        "  Occupied milliseconds: __ _ _ _ {}",
         with_commas(occupied_timestamps)
     );
-    println!("  Average IDs/ms:         {:.2}", average_ids_per_ms);
-    println!("  Maximum IDs/ms:         {}", with_commas(max_ids_per_ms));
     println!(
-        "  Maximum collisions/ms:  {}",
+        "  Average IDs/ms: _ _ _ _ _ _ _ _ {:.2}",
+        average_ids_per_ms
+    );
+    println!(
+        "  Maximum IDs/ms: _ _ _ _ _ _ _ _ {}",
+        with_commas(max_ids_per_ms)
+    );
+    println!(
+        "  Maximum collisions/ms: __ _ _ _ {}",
         with_commas(max_collisions_per_ms)
     );
 }

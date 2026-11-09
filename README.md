@@ -84,7 +84,7 @@ let encrypted_now = cipher.generate_encrypted().expect("id");
 println!("encrypted_now = {encrypted_now:?}");
 // encrypted_now = EncryptedNano64 { payload: [21, 169, 207, ...] }
 
-let bytes_payload = encrypted_now.to_bytes();
+let bytes_payload = encrypted_now.to_be_bytes();
 println!("Payload bytes = {bytes_payload:?}");
 // Payload bytes = [21, 169, 207, ...]
 
@@ -245,7 +245,7 @@ Generates and encrypts a new ID using a custom timestamp and custom RNG.
 
 ### EncryptedNano64
 
-`encrypted.to_bytes()` / `encrypted.to_hex()`
+`encrypted.to_be_bytes()` / `encrypted.to_hex()`
 
 Exports the encrypted payload as bytes or a hexadecimal string.
 

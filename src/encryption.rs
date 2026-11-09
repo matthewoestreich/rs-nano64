@@ -37,7 +37,7 @@ impl Nano64Cipher {
 
     /// Decrypts an encrypted Nano64 ID and verifies its authenticity.
     pub fn decrypt(&self, encrypted: &EncryptedNano64) -> Result<Nano64, Nano64Error> {
-        let bytes = encrypted.to_bytes();
+        let bytes = encrypted.to_be_bytes();
         let iv = &bytes[..IV_LENGTH];
         let ciphertext = &bytes[IV_LENGTH..];
         let nonce = GenericArray::from_slice(iv);
@@ -131,8 +131,8 @@ impl EncryptedNano64 {
         Ok(Self::from_bytes(bytes))
     }
 
-    /// Get the encrypted payload as raw bytes
-    pub fn to_bytes(&self) -> &[u8; PAYLOAD_LENGTH] {
+    /// Get the encrypted payload as raw big endian bytes
+    pub fn to_be_bytes(&self) -> &[u8; PAYLOAD_LENGTH] {
         &self.payload
     }
 
@@ -202,7 +202,7 @@ mod tests {
         println!("encrypted_now = {encrypted_now:?}");
         // encrypted_now = EncryptedNano64 { payload: [26, 38, 236, ...] }
 
-        let bytes_payload = encrypted_now.to_bytes();
+        let bytes_payload = encrypted_now.to_be_bytes();
         println!("Payload bytes = {bytes_payload:?}");
         // Payload bytes = [26, 38, 236, ...]
 

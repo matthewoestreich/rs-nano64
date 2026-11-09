@@ -11,10 +11,10 @@ use std::{
 const RANDOM_SPACE: f64 = (1 << 20) as f64;
 
 fn main() {
-    // run_single_threaded_throughput();
-    // run_concurrent_multi_threaded_throughput();
-    // run_single_thread_collision_distribution();
-    // run_concurrent_multi_threaded_collision_distribution();
+    run_single_threaded_throughput();
+    run_concurrent_multi_threaded_throughput();
+    run_single_thread_collision_distribution();
+    run_concurrent_multi_threaded_collision_distribution();
     run_sustained_generation();
 }
 

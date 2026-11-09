@@ -340,12 +340,26 @@ Generate IDs as fast as possible on a single thread.
 
 Concurrently generate IDs as fast as possible across multiple threads.
 
-- **Runs:** 5
-- **Threads:** 10
+- **Runs:** 5 per thread count
 - **IDs per run:** 5,000,000
-- **Median throughput:** 136,591,100.28 IDs/sec
-- **Minimum throughput:** 126,221,145.40 IDs/sec
-- **Maximum throughput:** 142,380,935.58 IDs/sec
+- **Thread counts tested:** 1, 2, 4, 8, 12, 16, 24, 32, 64
+- **Highest median throughput:** 161.27M IDs/sec (24 threads)
+- **Highest observed throughput:** 165.57M IDs/sec (24 threads)
+- **Lowest observed throughput:** 20.04M IDs/sec (1 thread)
+
+**Throughput by thread count**
+
+| Threads |  Median | Minimum | Maximum |
+| ------: | ------: | ------: | ------: |
+|       1 |  20.26M |  20.04M |  20.36M |
+|       2 |  39.20M |  38.97M |  39.84M |
+|       4 |  77.57M |  76.94M |  78.62M |
+|       8 | 121.41M | 110.31M | 126.24M |
+|      12 | 157.05M | 146.92M | 160.52M |
+|      16 | 150.15M | 148.31M | 156.27M |
+|      24 | 161.27M | 147.76M | 165.57M |
+|      32 | 159.90M | 155.01M | 162.64M |
+|      64 | 156.26M | 153.14M | 158.15M |
 
 ## Tests
 

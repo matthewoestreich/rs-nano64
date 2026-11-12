@@ -1,9 +1,10 @@
-use crate::{NANO64_BYTES_LENGTH, NANO64_STRING_LENGTH};
-use std::{
-    error,
-    fmt::{Display, Formatter, Result},
-    time::SystemTimeError,
-};
+use crate::NANO64_BYTES_LENGTH;
+use crate::NANO64_STRING_LENGTH;
+use std::error;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result;
+use std::time::SystemTimeError;
 
 #[derive(Debug)]
 pub enum Nano64Error {

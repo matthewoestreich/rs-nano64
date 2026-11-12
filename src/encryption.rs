@@ -1,9 +1,16 @@
-use crate::{IV_LENGTH, NANO64_BYTES_LENGTH, Nano64, Nano64Error, PAYLOAD_LENGTH};
-use aes_gcm::{
-    Aes256Gcm, Key, Nonce,
-    aead::{Aead, KeyInit, generic_array::GenericArray},
-};
-use rand::Rng;
+use crate::IV_LENGTH;
+use crate::NANO64_BYTES_LENGTH;
+use crate::Nano64;
+use crate::Nano64Error;
+use crate::PAYLOAD_LENGTH;
+use crate::rand::Rng;
+use crate::rand::rng;
+use aes_gcm::Aes256Gcm;
+use aes_gcm::Key;
+use aes_gcm::Nonce;
+use aes_gcm::aead::Aead;
+use aes_gcm::aead::KeyInit;
+use aes_gcm::aead::generic_array::GenericArray;
 use std::time::SystemTime;
 
 /// Provides methods for generating, encrypting, and decrypting Nano64 IDs.
@@ -55,7 +62,7 @@ impl Nano64Cipher {
 
     /// Generate encrypted id using default rng and current timestamp
     pub fn generate_encrypted(&self) -> Result<EncryptedNano64, Nano64Error> {
-        self.generate_encrypted_with_timestamp_and_rng(SystemTime::now(), &mut rand::rng())
+        self.generate_encrypted_with_timestamp_and_rng(SystemTime::now(), &mut rng())
     }
 
     /// Generate encrypted id using default rng and provided timestamp
@@ -63,7 +70,7 @@ impl Nano64Cipher {
         &self,
         timestamp: SystemTime,
     ) -> Result<EncryptedNano64, Nano64Error> {
-        self.generate_encrypted_with_timestamp_and_rng(timestamp, &mut rand::rng())
+        self.generate_encrypted_with_timestamp_and_rng(timestamp, &mut rng())
     }
 
     /// Generate encrypted id using provided rng and default timestamp
@@ -72,7 +79,7 @@ impl Nano64Cipher {
         rng: &mut RNG,
     ) -> Result<EncryptedNano64, Nano64Error>
     where
-        RNG: rand::Rng,
+        RNG: Rng,
     {
         self.generate_encrypted_with_timestamp_and_rng(SystemTime::now(), rng)
     }
@@ -84,7 +91,7 @@ impl Nano64Cipher {
         rng: &mut RNG,
     ) -> Result<EncryptedNano64, Nano64Error>
     where
-        RNG: rand::Rng,
+        RNG: Rng,
     {
         self.generate_encrypted_with_timestamp_and_rng(timestamp, rng)
     }
@@ -96,7 +103,7 @@ impl Nano64Cipher {
         rng: &mut RNG,
     ) -> Result<EncryptedNano64, Nano64Error>
     where
-        RNG: rand::Rng,
+        RNG: Rng,
     {
         let id = crate::generate_with_timestamp_and_rng(timestamp, rng)?;
         self.encrypt(id)
@@ -104,7 +111,7 @@ impl Nano64Cipher {
 
     fn generate_iv() -> [u8; IV_LENGTH] {
         let mut iv = [0u8; IV_LENGTH];
-        rand::rng().fill_bytes(&mut iv);
+        rng().fill_bytes(&mut iv);
         iv
     }
 }

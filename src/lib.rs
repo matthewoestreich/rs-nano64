@@ -9,13 +9,16 @@ mod nano64;
 pub use encryption::*;
 pub use errors::*;
 pub use nano64::*;
+pub use rand;
 
-use rand::RngExt as _;
-use std::{
-    cmp::Ordering,
-    sync::{LazyLock, Mutex},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use crate::rand::Rng;
+use crate::rand::RngExt as _;
+use crate::rand::rng;
+use std::cmp::Ordering;
+use std::sync::LazyLock;
+use std::sync::Mutex;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 /// The number of bits allocated to the millisecond timestamp (0..2^44-1).
 pub const TIMESTAMP_BITS: u64 = 44;
@@ -109,7 +112,7 @@ pub fn compare(a: &Nano64, b: &Nano64) -> Ordering {
 /// assert!(id.value() >= 0);
 /// ```
 pub fn generate() -> Result<Nano64, Nano64Error> {
-    generate_with_timestamp_and_rng(SystemTime::now(), &mut rand::rng())
+    generate_with_timestamp_and_rng(SystemTime::now(), &mut rng())
 }
 
 /// Generate a new ID using your own timestamp and default RNG.
@@ -125,7 +128,7 @@ pub fn generate() -> Result<Nano64, Nano64Error> {
 /// let id = nano64::generate_at(time).unwrap();
 /// ```
 pub fn generate_at(timestamp: SystemTime) -> Result<Nano64, Nano64Error> {
-    generate_with_timestamp_and_rng(timestamp, &mut rand::rng())
+    generate_with_timestamp_and_rng(timestamp, &mut rng())
 }
 
 /// Generate a new ID using the current timestamp and your own RNG.
@@ -160,7 +163,7 @@ pub fn generate_at(timestamp: SystemTime) -> Result<Nano64, Nano64Error> {
 /// ```
 pub fn generate_with_rng<RNG>(rng: &mut RNG) -> Result<Nano64, Nano64Error>
 where
-    RNG: rand::Rng,
+    RNG: Rng,
 {
     generate_with_timestamp_and_rng(SystemTime::now(), rng)
 }
@@ -201,7 +204,7 @@ where
 /// ```
 pub fn generate_with<RNG>(timestamp: SystemTime, rng: &mut RNG) -> Result<Nano64, Nano64Error>
 where
-    RNG: rand::Rng,
+    RNG: Rng,
 {
     generate_with_timestamp_and_rng(timestamp, rng)
 }
@@ -224,7 +227,7 @@ where
 /// assert!(nano64::compare(&first, &second).is_lt());
 /// ```
 pub fn generate_monotonic() -> Result<Nano64, Nano64Error> {
-    generate_monotonic_with_timestamp_and_rng(SystemTime::now(), &mut rand::rng())
+    generate_monotonic_with_timestamp_and_rng(SystemTime::now(), &mut rng())
 }
 
 /// Generates a strictly increasing ID using the provided timestamp and default RNG.
@@ -246,7 +249,7 @@ pub fn generate_monotonic() -> Result<Nano64, Nano64Error> {
 /// assert!(nano64::compare(&first, &second).is_lt());
 /// ```
 pub fn generate_monotonic_at(timestamp: SystemTime) -> Result<Nano64, Nano64Error> {
-    generate_monotonic_with_timestamp_and_rng(timestamp, &mut rand::rng())
+    generate_monotonic_with_timestamp_and_rng(timestamp, &mut rng())
 }
 
 /// Generates a strictly increasing ID using the current timestamp and a custom RNG.
@@ -289,7 +292,7 @@ pub fn generate_monotonic_at(timestamp: SystemTime) -> Result<Nano64, Nano64Erro
 /// ```
 pub fn generate_monotonic_with_rng<RNG>(rng: &mut RNG) -> Result<Nano64, Nano64Error>
 where
-    RNG: rand::Rng,
+    RNG: Rng,
 {
     generate_monotonic_with_timestamp_and_rng(SystemTime::now(), rng)
 }
@@ -339,7 +342,7 @@ pub fn generate_monotonic_with<RNG>(
     rng: &mut RNG,
 ) -> Result<Nano64, Nano64Error>
 where
-    RNG: rand::Rng,
+    RNG: Rng,
 {
     generate_monotonic_with_timestamp_and_rng(timestamp, rng)
 }
@@ -403,7 +406,7 @@ fn generate_with_timestamp_and_rng<RNG>(
     rng: &mut RNG,
 ) -> Result<Nano64, Nano64Error>
 where
-    RNG: rand::Rng,
+    RNG: Rng,
 {
     let ts = timestamp.duration_since(UNIX_EPOCH)?.as_millis();
 
@@ -411,8 +414,8 @@ where
         return Err(Nano64Error::TimestampExceedsBitRange(ts));
     }
 
-    let rand = rng.random::<u64>() & RANDOM_MASK;
-    let value = ((ts as u64) << RANDOM_BITS) | rand;
+    let random_value = rng.random::<u64>() & RANDOM_MASK;
+    let value = ((ts as u64) << RANDOM_BITS) | random_value;
 
     Ok(Nano64::new(value))
 }
@@ -423,7 +426,7 @@ fn generate_monotonic_with_timestamp_and_rng<RNG>(
     rng: &mut RNG,
 ) -> Result<Nano64, Nano64Error>
 where
-    RNG: rand::Rng,
+    RNG: Rng,
 {
     let mut ts = timestamp.duration_since(UNIX_EPOCH)?.as_millis();
 

@@ -1,12 +1,17 @@
-use crate::{
-    NANO64_BYTES_LENGTH, NANO64_STRING_LENGTH, Nano64Error, RANDOM_BITS, RANDOM_MASK,
-    TIMESTAMP_HEX_LENGTH, TIMESTAMP_MASK, compare,
-};
+use crate::NANO64_BYTES_LENGTH;
+use crate::NANO64_STRING_LENGTH;
+use crate::Nano64Error;
+use crate::RANDOM_BITS;
+use crate::RANDOM_MASK;
+use crate::TIMESTAMP_HEX_LENGTH;
+use crate::TIMESTAMP_MASK;
+use crate::compare;
 use hex::FromHex;
-use std::{
-    fmt, str,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::fmt;
+use std::str;
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 /// A 64-bit unique identifier containing a 44-bit
 /// Unix timestamp (milliseconds) and a 20-bit random value.
